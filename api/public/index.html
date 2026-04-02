@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Portfolio OS</title>
+    <script src="https://cdn.jsdelivr.net/npm/winbox@0.2.82/dist/winbox.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: url('https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=2560&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .dock {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: flex;
+            gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .app-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .app-icon:hover { transform: translateY(-10px) scale(1.1); }
+        .icon-terminal { background: linear-gradient(135deg, #2b5876, #4e4376); }
+    </style>
+</head>
+<body>
+
+    <div class="dock">
+        <div class="app-icon icon-terminal" onclick="openHaskellTerminal()">Haskell</div>
+    </div>
+
+    <script>
+        // Conectar con el backend de NestJS
+        const socket = io();
+
+        function openHaskellTerminal() {
+            // Creamos la ventana de WinBox
+            const win = new WinBox("Haskell programs", {
+                width: "600px",
+                height: "400px",
+                x: "center",
+                y: "center",
+                background: "#2b5876",
+                // Creamos un div vacío para alojar la terminal
+                html: "<div id='terminal-container' style='width:100%; height:100%; padding:5px; background: #000;'></div>"
+            });
+
+            // Esperamos unos milisegundos a que WinBox pinte el div en pantalla
+            setTimeout(() => {
+                // Configuramos la terminal Xterm
+                const term = new Terminal({
+                    theme: { background: '#000000' },
+                    fontFamily: 'monospace',
+                    cursorBlink: true
+                });
+                
+                term.open(document.getElementById('terminal-container'));
+
+                // 1. Cuando tecleas en la web, se envía al backend
+                term.onData(data => {
+                    socket.emit('terminal-input', data);
+                });
+
+                // 2. Cuando el backend recibe datos de Docker, los pinta en la web
+                socket.on('terminal-output', data => {
+                    term.write(data);
+                });
+
+                // 3. ¡Disparamos la creación del contenedor!
+                socket.emit('start-haskell');
+
+            }, 100);
+        }
+    </script>
+</body>
+</html>
