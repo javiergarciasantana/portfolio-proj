@@ -1,17 +1,19 @@
 import { WebSocketGateway, SubscribeMessage, MessageBody, ConnectedSocket, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
-import Docker from 'dockerode';
-
+import { DockerService } from 'src/docker/docker.service';
 @WebSocketGateway({ cors: true })
 export class TerminalGateway implements OnGatewayDisconnect {
-  private docker = new Docker({ socketPath: '/var/run/docker.sock' });
+  constructor(private readonly dockerService: DockerService) {}
 
-  // Cuando el usuario cierra la web, matamos su contenedor
+  // Cuando el usuario recarga la web o cierra la pestaña por completo
   handleDisconnect(client: Socket) {
-    const container = client.data.container;
-    if (container) {
-      container.kill().catch(() => {});
-    }
+    this.dockerService.killContainer(client);
+  }
+
+  // Cuando el usuario cierra específicamente la ventana de WinBox
+  @SubscribeMessage('stop-haskell')
+  handleStopJavaFx(@ConnectedSocket() client: Socket) {
+    this.dockerService.killContainer(client);
   }
 
   @SubscribeMessage('start-haskell')
@@ -20,14 +22,17 @@ export class TerminalGateway implements OnGatewayDisconnect {
       client.emit('terminal-output', 'Starting Haskell Container...\r\n');
 
       // 1. Creamos y arrancamos el contenedor con tu imagen
-      const container = await this.docker.createContainer({
+      const container = await this.dockerService.createContainer({
         Image: 'haskell-tui', // El nombre de la imagen que construimos
         Tty: true,
         OpenStdin: true,
         StdinOnce: false,
+        HostConfig: {
+          AutoRemove: true // <--- CRUCIAL: Se auto-destruye al detenerse
+        }
       });
 
-      client.data.container = container; // Lo guardamos para poder matarlo luego
+      client.data.activeContainer = container; // Lo guardamos para poder matarlo luego
       
       // 2. Nos "enganchamos" a la terminal del contenedor
       const stream = await container.attach({

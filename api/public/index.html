@@ -7,7 +7,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-
+    <script type="module">
+      import RFB from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.3.0/core/rfb.js';
+      window.RFB = RFB;
+    </script>
     <style>
         body {
             margin: 0;
@@ -52,6 +55,7 @@
 
     <div class="dock">
         <div class="app-icon icon-terminal" onclick="openHaskellTerminal()">Haskell</div>
+        <div class="app-icon icon-terminal" onclick="openFormFillerJavaFX()">FormFiller</div>
     </div>
 
     <script>
@@ -61,13 +65,17 @@
         function openHaskellTerminal() {
             // Creamos la ventana de WinBox
             const win = new WinBox("Haskell programs", {
-                width: "600px",
-                height: "400px",
+                width: "1200px",
+                height: "800px",
                 x: "center",
                 y: "center",
                 background: "#2b5876",
                 // Creamos un div vacío para alojar la terminal
-                html: "<div id='terminal-container' style='width:100%; height:100%; padding:5px; background: #000;'></div>"
+                html: "<div id='terminal-container' style='width:100%; height:100%; padding:5px; background: #000;'></div>",         
+                onclose: function() {
+                    console.log("Cerrando ventana WinBox, deteniendo contenedor...");
+                    socket.emit('stop-haskell');
+                }
             });
 
             // Esperamos unos milisegundos a que WinBox pinte el div en pantalla
@@ -95,6 +103,58 @@
                 socket.emit('start-haskell');
 
             }, 100);
+        }
+
+        function openFormFillerJavaFX() {
+            const win = new WinBox("FormFiller App", {
+                width: "512px",
+                height: "600px",
+                x: "center",
+                y: "center",
+                background: "#2b5876",
+                // Div limpio, sin Flexbox forzados
+                html: "<div id='javafx-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
+                onclose: function() {
+                    socket.emit('stop-javafx');
+                }
+            });
+
+            // 1. Le pides a NestJS que arranque el contenedor
+            socket.emit('start-javafx');
+
+            // 2. Usamos socket.once en lugar de socket.on para que no se dupliquen 
+            // los listeners si cierras y vuelves a abrir la app varias veces.
+            socket.once('javafx-started', (data) => {
+                console.log("FormFiller corriendo en el puerto:", data.port);
+                
+                // La IP de tu servidor (o localhost si estás en tu Mac Sequoia)
+                const serverIP = window.location.hostname;
+                console.log("Ip del servidor: " + serverIP);
+                // La URL estándar donde noVNC expone el websocket es /websockify
+                const wsUrl = `ws://${serverIP}:${data.port}/websockify`;
+                
+                // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
+                const container = document.getElementById('javafx-container');
+                const rfb = new window.RFB(container, wsUrl, {
+                    // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
+                    credentials: { password: '' } 
+                });
+
+                // 4. Configuración clave de interfaz gráfica
+                rfb.scaleViewport = true;    // Escala la imagen para que encaje
+                //rfb.clipViewport = true;     // Corta los bordes muertos para evitar "fantasmas"
+                rfb.resizeSession = false;   // Evita el error rojo de la consola
+                rfb.showDotCursor = true;  // Puntero local
+
+                // Eventos opcionales para saber si ha ido bien o mal
+                rfb.addEventListener("connect", () => {
+                    console.log("¡Conexión VNC establecida con éxito!");
+                });
+                
+                rfb.addEventListener("disconnect", (e) => {
+                    console.log("Conexión VNC cerrada", e.detail.reason);
+                });
+            });
         }
     </script>
 </body>

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Docker from 'dockerode';
+import { Socket } from 'socket.io';
 
 @Injectable()
 export class DockerService {
@@ -28,4 +29,18 @@ export class DockerService {
       };
     }
   }
+  public async createContainer(options: Docker.ContainerCreateOptions) {
+    return this.docker.createContainer(options);
+  }
+  // Función auxiliar para no repetir código
+  public killContainer(client: Socket) {
+    const container = client.data.activeContainer;
+    if (container) {
+      console.log('Deteniendo contenedor JavaFX...');
+      // Como le pondremos AutoRemove: true, hacer kill() también lo elimina del sistema
+      container.kill().catch(() => {});
+      client.data.activeContainer = null; // Limpiamos la referencia
+    }
+  }
+  
 }
