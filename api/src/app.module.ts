@@ -4,6 +4,7 @@ import { join } from 'path';
 import { DockerModule } from './docker/docker.module';
 import { TerminalGateway } from './gateways/terminal.gateway';
 import { JavaFxGateway } from './gateways/javafx.gateway';
+import { JavaProcGateway } from './gateways/javaproc.gateway copy';
 import { DockerService } from './docker/docker.service';
 
 @Module({
@@ -13,6 +14,6 @@ import { DockerService } from './docker/docker.service';
     }),
     DockerModule,
   ],
-  providers: [TerminalGateway, JavaFxGateway, DockerService],
+  providers: [TerminalGateway, JavaFxGateway, JavaProcGateway, DockerService],
 })
 export class AppModule {}

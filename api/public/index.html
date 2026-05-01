@@ -56,6 +56,8 @@
     <div class="dock">
         <div class="app-icon icon-terminal" onclick="openHaskellTerminal()">Haskell</div>
         <div class="app-icon icon-terminal" onclick="openFormFillerJavaFX()">FormFiller</div>
+        <div class="app-icon icon-terminal" onclick="openLabyrinthMadnessJavaProc()">LabyrinthMadness</div>
+
     </div>
 
     <script>
@@ -135,6 +137,57 @@
                 
                 // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
                 const container = document.getElementById('form-filler-container');
+                const rfb = new window.RFB(container, wsUrl, {
+                    // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
+                    credentials: { password: '' } 
+                });
+
+                // 4. Configuración clave de interfaz gráfica
+                rfb.scaleViewport = true;    // Escala la imagen para que encaje
+                //rfb.clipViewport = true;     // Corta los bordes muertos para evitar "fantasmas"
+                rfb.resizeSession = false;   // Evita el error rojo de la consola
+                rfb.showDotCursor = true;  // Puntero local
+
+                // Eventos opcionales para saber si ha ido bien o mal
+                rfb.addEventListener("connect", () => {
+                    console.log("¡Conexión VNC establecida con éxito!");
+                });
+                
+                rfb.addEventListener("disconnect", (e) => {
+                    console.log("Conexión VNC cerrada", e.detail.reason);
+                });
+            });
+        }
+        function openLabyrinthMadnessJavaProc() {
+            const win = new WinBox("Labyrith Madness App", {
+                width: "608px",
+                height: "700px",
+                x: "center",
+                y: "center",
+                background: "#2b5876",
+                // Div limpio, sin Flexbox forzados
+                html: "<div id='labyrinth-madness-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
+                onclose: function() {
+                    socket.emit('stop-labyrinth-madness');
+                }
+            });
+
+            // 1. Le pides a NestJS que arranque el contenedor
+            socket.emit('start-labyrinth-madness');
+
+            // 2. Usamos socket.once en lugar de socket.on para que no se dupliquen 
+            // los listeners si cierras y vuelves a abrir la app varias veces.
+            socket.once('labyrinth-madness-started', (data) => {
+                console.log("Labyrinth Madness corriendo en el puerto:", data.port);
+                
+                // La IP de tu servidor (o localhost si estás en tu Mac Sequoia)
+                const serverIP = window.location.hostname;
+                console.log("Ip del servidor: " + serverIP);
+                // La URL estándar donde noVNC expone el websocket es /websockify
+                const wsUrl = `ws://${serverIP}:${data.port}/websockify`;
+                
+                // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
+                const container = document.getElementById('labyrinth-madness-container');
                 const rfb = new window.RFB(container, wsUrl, {
                     // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
                     credentials: { password: '' } 
