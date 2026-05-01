@@ -13,12 +13,12 @@ export class JavaFxGateway implements OnGatewayDisconnect {
   }
 
   // Cuando el usuario cierra específicamente la ventana de WinBox
-  @SubscribeMessage('stop-javafx')
+  @SubscribeMessage('stop-form-filler')
   handleStopJavaFx(@ConnectedSocket() client: Socket) {
     this.dockerService.killContainer(client);
   }
 
-  @SubscribeMessage('start-javafx')
+  @SubscribeMessage('start-form-filler')
   async handleStartJavaFx(@ConnectedSocket() client: Socket) {
     try {
       // 1. Asignamos un puerto en tu servidor (8081).
@@ -43,12 +43,12 @@ export class JavaFxGateway implements OnGatewayDisconnect {
 
       // 3. ¡Encendemos la máquina!
       await container.start();
-      console.log(`Contenedor JavaFX iniciado en el puerto ${hostPort}`);
+      console.log(`Contenedor form-filler iniciado en el puerto ${hostPort}`);
 
       // 4. Le damos 3 segundos a Xvfb (la pantalla) y VNC para que arranquen dentro de Docker
       // antes de decirle al frontend que ya puede conectarse.
       setTimeout(() => {
-        client.emit('javafx-started', { 
+        client.emit('form-filler-started', { 
           message: 'JavaFX Server Ready',
           port: hostPort 
         });

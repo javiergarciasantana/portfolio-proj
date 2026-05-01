@@ -113,18 +113,18 @@
                 y: "center",
                 background: "#2b5876",
                 // Div limpio, sin Flexbox forzados
-                html: "<div id='javafx-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
+                html: "<div id='form-filler-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
                 onclose: function() {
-                    socket.emit('stop-javafx');
+                    socket.emit('stop-form-filler');
                 }
             });
 
             // 1. Le pides a NestJS que arranque el contenedor
-            socket.emit('start-javafx');
+            socket.emit('start-form-filler');
 
             // 2. Usamos socket.once en lugar de socket.on para que no se dupliquen 
             // los listeners si cierras y vuelves a abrir la app varias veces.
-            socket.once('javafx-started', (data) => {
+            socket.once('form-filler-started', (data) => {
                 console.log("FormFiller corriendo en el puerto:", data.port);
                 
                 // La IP de tu servidor (o localhost si estás en tu Mac Sequoia)
@@ -134,7 +134,7 @@
                 const wsUrl = `ws://${serverIP}:${data.port}/websockify`;
                 
                 // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
-                const container = document.getElementById('javafx-container');
+                const container = document.getElementById('form-filler-container');
                 const rfb = new window.RFB(container, wsUrl, {
                     // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
                     credentials: { password: '' } 

@@ -214,7 +214,7 @@ sudo systemctl start wol.service
 
 - Creating new image
 ```bash
-docker build --nocache -t [IMAGE-NAME] .
+docker build --no-cache -t [IMAGE-NAME] .
 ```
 - Running new image
 

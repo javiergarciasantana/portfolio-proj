@@ -1,6 +1,8 @@
 # My portfolio OS project 
 
-The mere purpose of this repo, is to be able to display my assorment of projects that I have posted as repos in GitHub.
+![current-state-of-the-webapp](./docs/image.png)
+
+The mere purpose of this repo, is to be able to display my assorment of projects that I have posted as repos in [GitHub](https://github.com/javiergarciasantana).
 
 These range from simple terminal programs to full applications made with a purpose in mind wether it is to showcase an algorithm or simply make something that uses a `cool`
 library.
@@ -15,6 +17,9 @@ The idea behind the repo comes from the difficultness to run all my programs, si
 * [Inner workings](#inner-workings)
 * [Managing Docker images](#managing-docker-images)
 
+## My Showcased projects
+
+Speak about each single implemented proj and talk about the programming language used and functionality briefly.
 
 ## Inner workings
 
@@ -32,12 +37,22 @@ The idea behind the repo comes from the difficultness to run all my programs, si
 - [noVNC]()
 - [Xvfb]()
 
+---
+
+### Docker images and their greatness
+
+
+
+---
+
 ### Many programs, many ways of running
 Having fully-fledged applications just a click away is no easy task, and that is exactly where `Docker` and dockerode come in handy. On my server, I can clone my repositories, which are already equipped with their own `Dockerfiles`, to build images that can be dynamically spun up by the backend.
 
 This architecture allows us to start any program without a hitch. Because the `Docker` image already contains the underlying OS, the environment variables, and all the necessary dependencies, it is perfectly isolated and just waiting to be executed. Every time an application is launched, a fresh, clean environment is born.
 
 While `Docker` handles the heavy lifting of containerization, dockerode acts as the crucial bridge. It allows our NestJS backend to communicate directly with the `Debian` server's `Docker` engine via its internal socket `(/var/run/docker.sock)`. Instead of relying on manual terminal commands, our `Node.js` code can programmatically create, start, attach to, and securely destroy these containers on the fly.
+
+---
 
 ### My program is running! But I can't see it :(
 
@@ -47,13 +62,16 @@ In order to see what is happening when running a program we need something calle
 
 However, because we are using `Socket.io` (which sits on top of WebSockets), `Socket.io` introduces an event-based system (socket.on('event')). This is what makes it feel like tuning into a TV or radio station! Socket.io's event system lets you "tune in" to specific channels (like 'terminal-output') over that dedicated WebSocket phone line.
 
-```js
-    socket.on('terminal-output', data => {
-      // Takes the raw text (and hidden color codes) from Docker and renders it in the xterm.js UI
-        term.write(data);
-    });
+```TypeScript
+socket.on('terminal-output', data => {
+  // Takes the raw text (and hidden color codes) from Docker and 
+  // renders it in the xterm.js UI
+    term.write(data);
+});
 
 ```
+
+---
 
 ### Terminal sockets and other sockets that emit GUI
 
@@ -64,16 +82,17 @@ As mentioned earlier, a raw `WebSocket` is actually more like a direct, persiste
 For a text-based application (like our Haskell TUI), the `NestJS` backend acts as a middleman. It "attaches" to the `Docker` container's standard input and output streams. When you type in the browser, `Socket.io` sends a terminal-input event to NestJS, which literally writes those keystrokes directly into the Docker container's brain:
 
 ```TypeScript
-
-  // 4. Listen for user keystrokes from the web and push them INTO the container
-  @SubscribeMessage('terminal-input')
-  handleInput(@ConnectedSocket() client: Socket, @MessageBody() data: string) {
-    const stream = client.data.stream;
-    if (stream) {
-      stream.write(data);
-    }
+// Listen for user keystrokes from the web and push them INTO the container
+@SubscribeMessage('terminal-input')
+handleInput(@ConnectedSocket() client: Socket, @MessageBody() data: string) {
+  const stream = client.data.stream;
+  if (stream) {
+    stream.write(data);
   }
+}
 ```
+
+
 #### The GUI Approach: Sockets as Matchmakers
 But what happens when the application isn't just text? What if it's a fully-fledged graphical interface, like a `JavaFX` application?
 
@@ -134,16 +153,25 @@ Streaming live desktop video (VNC) through Socket.io text events would be incred
 
 Both Gateways share the exact same `DockerService` to handle container cleanup (AutoRemove: true), ensuring that no matter what kind of app you open, closing the window leaves the server memory spotless and pristine.
 
+---
+
+### The `Xvfb` virtual monitor
+
+
+---
+
 ## Managing Docker images
 
 - Creating new image
+
 ```bash
-docker build --nocache -t [IMAGE-NAME] .
+docker build --no-cache -t [IMAGE-NAME] .
 ```
+
 - Running new image
 
 ```bash
-docker run -p 8080:8080 [IMAGE-NAME]
+docker run --rm -p 8080:8080 [IMAGE-NAME]
 ```
 
 - Removing a running image
