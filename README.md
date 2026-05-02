@@ -11,7 +11,7 @@ The idea behind the repo comes from the difficultness to run all my programs, si
 
 ---
 
-## Index
+## Table of Contents
 
 * [Host machine used to run this project](./docs/host.md)
 * [Inner workings](#inner-workings)
@@ -20,6 +20,12 @@ The idea behind the repo comes from the difficultness to run all my programs, si
 ## My Showcased projects
 
 Speak about each single implemented proj and talk about the programming language used and functionality briefly.
+
+* [Labyrinth Madness]()
+* [Haskell Functions]()
+* [FormFiller]()
+* [Polygon Triangulation]()
+* [Product-E-Match]()
 
 ## Inner workings
 

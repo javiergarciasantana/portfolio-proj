@@ -33,14 +33,34 @@ export class DockerService {
     return this.docker.createContainer(options);
   }
   // Función auxiliar para no repetir código
-  public killContainer(client: Socket) {
+  public async killContainer(client: Socket, appName: String) {
+    // In base-docker.gateway.ts
+    console.log(`[Shutdown Request] Trying to stop container for: ${appName}`);
+    
     const container = client.data.activeContainer;
-    if (container) {
-      console.log('Deteniendo contenedor JavaFX...');
-      // Como le pondremos AutoRemove: true, hacer kill() también lo elimina del sistema
-      container.kill().catch(() => {});
-      client.data.activeContainer = null; // Limpiamos la referencia
+    if (!container) {
+      console.log(`[Warning] No active container found in memory for ${appName}.`);
+      return;
+    }
+
+    try {
+      console.log(`[Docker] Stopping container ${container.id}...`);
+      // We call the dockerService directly, or use the container object directly
+      await container.stop(); 
+      console.log(`[Success] Container ${container.id} stopped and AutoRemoved.`);
+      
+      // Clear the memory
+      client.data.activeContainer = null;
+    } catch (error) {
+      console.error(`[Error] Failed to stop container:`, error.message);
+      // Fallback: If stop fails, force kill it
+      try {
+        await container.kill();
+        console.log(`[Success] Container force-killed.`);
+      } catch (killError) {
+        console.error(`[Fatal] Could not kill container either.`, killError.message);
+      }
     }
   }
-  
+ 
 }

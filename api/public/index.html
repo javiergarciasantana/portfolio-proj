@@ -199,6 +199,13 @@
                 rfb.resizeSession = false;   // Evita el error rojo de la consola
                 rfb.showDotCursor = true;  // Puntero local
 
+                // --- PERFORMANCE INJECTION ---
+                // We set quality and compression directly on the RFB object
+                // 0 is lowest quality/fastest, 9 is highest quality/slowest. 
+                // 6 is the sweet spot.
+                rfb.qualityLevel = 6;
+                rfb.compressionLevel = 6;
+
                 // Eventos opcionales para saber si ha ido bien o mal
                 rfb.addEventListener("connect", () => {
                     console.log("¡Conexión VNC establecida con éxito!");

@@ -4,7 +4,7 @@ import { join } from 'path';
 import { DockerModule } from './docker/docker.module';
 import { TerminalGateway } from './gateways/terminal.gateway';
 import { JavaFxGateway } from './gateways/javafx.gateway';
-import { JavaProcGateway } from './gateways/javaproc.gateway copy';
+import { JavaProcGateway } from './gateways/javaproc.gateway';
 import { DockerService } from './docker/docker.service';
 
 @Module({
