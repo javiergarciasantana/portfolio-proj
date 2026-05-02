@@ -11,15 +11,33 @@ export interface GuiAppConfig {
 }
 
 export abstract class BaseDockerGateway implements OnGatewayDisconnect {
+
+  private readonly MAX_CONCURRENT_CONTAINERS = 10;
+
   constructor(protected readonly dockerService: DockerService) {}
 
-  // 1. Centralized Cleanup
+  // Automatically fires when a user closes the browser tab
   handleDisconnect(client: Socket) {
-    this.dockerService.killContainer(client);
+    this.cleanupContainer(client, 'Disconnected-Tab');
   }
 
-  protected stopContainer(client: Socket) {
-    this.dockerService.killContainer(client);
+  // PROTECTED: Only accessible by child gateways (FormFiller, Haskell, etc.)
+  protected async cleanupContainer(client: Socket, appName: string) {
+    const container = client.data.activeContainer;
+    
+    if (!container) {
+      console.log(`[Warning] No active container to stop for ${appName}.`);
+      return;
+    }
+
+    console.log(`[Shutdown] Stopping ${appName} (ID: ${container.id})...`);
+    
+    // Delegate the actual killing to the pure Docker service
+    await this.dockerService.removeContainer(container);
+    
+    // Clear the WebSocket session memory
+    client.data.activeContainer = null;
+    console.log(`[Success] ${appName} memory cleared.`);
   }
 
   // 2. Centralized GUI App Logic

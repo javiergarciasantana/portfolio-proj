@@ -10,15 +10,10 @@ export class TerminalGateway extends BaseDockerGateway {
     super(dockerService);
   }
 
-  // Cuando el usuario recarga la web o cierra la pestaña por completo
-  handleDisconnect(client: Socket) {
-    this.dockerService.killContainer(client);
-  }
-
   // Cuando el usuario cierra específicamente la ventana de WinBox
   @SubscribeMessage('stop-haskell')
-  handleStopJavaFx(@ConnectedSocket() client: Socket) {
-    this.stopContainer(client);
+  async handleStopJavaFx(@ConnectedSocket() client: Socket) {
+    await this.cleanupContainer(client, 'haskell-tui');
   }
 
   @SubscribeMessage('start-haskell')

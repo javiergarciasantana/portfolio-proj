@@ -32,35 +32,21 @@ export class DockerService {
   public async createContainer(options: Docker.ContainerCreateOptions) {
     return this.docker.createContainer(options);
   }
-  // Función auxiliar para no repetir código
-  public async killContainer(client: Socket, appName: String) {
-    // In base-docker.gateway.ts
-    console.log(`[Shutdown Request] Trying to stop container for: ${appName}`);
-    
-    const container = client.data.activeContainer;
-    if (!container) {
-      console.log(`[Warning] No active container found in memory for ${appName}.`);
-      return;
-    }
+  
+  public async listContainers() {
+    return await this.docker.listContainers();
+  }
 
+  // Pure Docker logic. No Sockets allowed here!
+  public async removeContainer(container: Docker.Container): Promise<void> {
     try {
-      console.log(`[Docker] Stopping container ${container.id}...`);
-      // We call the dockerService directly, or use the container object directly
-      await container.stop(); 
-      console.log(`[Success] Container ${container.id} stopped and AutoRemoved.`);
-      
-      // Clear the memory
-      client.data.activeContainer = null;
+      await container.stop();
     } catch (error) {
-      console.error(`[Error] Failed to stop container:`, error.message);
-      // Fallback: If stop fails, force kill it
       try {
         await container.kill();
-        console.log(`[Success] Container force-killed.`);
       } catch (killError) {
-        console.error(`[Fatal] Could not kill container either.`, killError.message);
+        console.error(`[Fatal] Could not kill container:`, killError.message);
       }
     }
   }
- 
 }

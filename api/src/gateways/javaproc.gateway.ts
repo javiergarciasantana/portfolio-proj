@@ -10,14 +10,10 @@ export class JavaProcGateway extends BaseDockerGateway {
     super(dockerService);
   }
 
-  handleDisconnect(client: Socket) {
-    this.dockerService.killContainer(client);
-  }
-
   // Cuando el usuario cierra específicamente la ventana de WinBox
   @SubscribeMessage('stop-labyrinth-madness')
-  handleStopJavaFx(@ConnectedSocket() client: Socket) {
-    this.stopContainer(client);
+  async handleStopJavaFx(@ConnectedSocket() client: Socket) {
+    await this.cleanupContainer(client, 'labyrinth-madness');
   }
 
   @SubscribeMessage('start-labyrinth-madness')
