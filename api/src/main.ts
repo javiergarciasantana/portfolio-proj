@@ -2,40 +2,61 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
+const DBG = (...a: any[]) => console.log('[xpra-proxy]', new Date().toISOString(), ...a);
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Proxy xpra containers through port 3000 to avoid cross-origin iframe block.
-  // Each container runs on a dynamic host port; browser sees /xpra/<port>/* on
-  // the same origin (3000) so X-Frame-Options: SAMEORIGIN is satisfied.
   const xpraProxy = createProxyMiddleware<any, any>({
     changeOrigin: true,
-    ws: true,
     router: (req: any) => {
-      // Express strips the /xpra mount prefix from req.url, so use originalUrl
-      // for HTTP requests. WebSocket upgrades bypass Express and keep the full
-      // URL in req.url, where originalUrl is undefined.
       const url: string = req.originalUrl ?? req.url ?? '';
       const m = url.match(/\/xpra\/(\d+)/);
-      return m ? `http://localhost:${m[1]}` : undefined;
+      const target = m ? `http://localhost:${m[1]}` : null;
+      DBG(`router  url="${url}" → target=${target}`);
+      return target;
     },
     pathRewrite: (path: string) => {
-      // path may be /PORT/rest (HTTP, Express-stripped) or /xpra/PORT/rest (WS)
       const m = path.match(/^\/(?:xpra\/)?(\d+)(\/.*)?$/);
-      return m ? (m[2] || '/') : path;
+      const rewritten = m ? (m[2] || '/') : '/';
+      DBG(`rewrite path="${path}" → "${rewritten}"`);
+      return rewritten;
+    },
+    on: {
+      proxyReq: (proxyReq: any, req: any) => {
+        DBG(`→ proxy  ${req.method} ${req.originalUrl ?? req.url}  →  ${proxyReq.host}${proxyReq.path}`);
+      },
+      proxyRes: (proxyRes: any, req: any) => {
+        DBG(`← resp   ${req.originalUrl ?? req.url}  status=${proxyRes.statusCode}`);
+        if (proxyRes.headers['x-frame-options']) {
+          DBG('  stripping X-Frame-Options:', proxyRes.headers['x-frame-options']);
+          delete proxyRes.headers['x-frame-options'];
+        }
+        if (proxyRes.headers['content-security-policy']) {
+          DBG('  stripping Content-Security-Policy');
+          delete proxyRes.headers['content-security-policy'];
+        }
+      },
+      error: (err: any, req: any, res: any) => {
+        DBG(`ERROR  ${req.originalUrl ?? req.url}  ${err.message}`);
+        if (res && typeof (res as any).status === 'function') {
+          (res as any).status(502).json({ error: 'xpra proxy error', message: err.message });
+        }
+      },
     },
   });
 
-  app.use('/xpra', xpraProxy);
-
-  // WebSocket upgrades bypass Express middleware — wire them up manually.
-  const httpServer = app.getHttpServer();
-  httpServer.on('upgrade', (req: any, socket: any, head: any) => {
-    if ((req.url as string)?.startsWith('/xpra/')) {
-      (xpraProxy as any).upgrade(req, socket, head);
+  app.use('/xpra', (req: any, res: any, next: any) => {
+    const url: string = req.originalUrl ?? '';
+    if (!/\/xpra\/\d+/.test(url)) {
+      DBG(`SKIP  no port in url="${url}" — passing to next middleware`);
+      return next();
     }
+    return xpraProxy(req, res, next);
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  console.log(`[bootstrap] NestJS listening on port ${port}`);
 }
 bootstrap();

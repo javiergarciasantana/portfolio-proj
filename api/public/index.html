@@ -325,7 +325,22 @@
 <div id="dock"></div>
 
 <script>
+// ── Debug logger ───────────────────────────────────────────────────────────
+const log = (() => {
+    const c = { ws:'#4fc3f7', app:'#a5d6a7', xpra:'#ffb74d', err:'#ef9a9a', info:'#e0e0e0' };
+    return (tag, ...args) => {
+        const color = c[tag] || c.info;
+        console.log(`%c[${tag}] ${new Date().toISOString()}`, `color:${color};font-weight:bold`, ...args);
+    };
+})();
+
 const socket = io();
+
+// ── Socket lifecycle ───────────────────────────────────────────────────────
+socket.on('connect',    () => log('ws', `connected  id=${socket.id}`));
+socket.on('disconnect', (reason) => log('ws', `disconnected  reason=${reason}`));
+socket.on('connect_error', (err) => log('err', `connect_error  ${err.message}`));
+socket.on('error', (err) => log('err', `socket error`, err));
 
 // ── Clock ──────────────────────────────────────────────────────────────────
 function tick() {
@@ -386,9 +401,12 @@ const FALLBACK_APPS = [
 async function loadApps() {
     try {
         const res = await fetch('/api/apps');
-        if (!res.ok) throw new Error('registry not ready');
-        return await res.json();
-    } catch {
+        if (!res.ok) throw new Error(`registry returned ${res.status}`);
+        const apps = await res.json();
+        log('info', `loadApps: loaded ${apps.length} apps from API`);
+        return apps;
+    } catch (e) {
+        log('err', `loadApps: API failed (${e.message}) — using fallback`);
         return FALLBACK_APPS;
     }
 }
@@ -402,6 +420,7 @@ function markRunning(id, running) {
 }
 
 function onWindowClose(app) {
+    log('app', `close  id=${app.id}  emitting '${app.stopEvent}'`);
     socket.emit(app.stopEvent);
     openWindows.delete(app.id);
     markRunning(app.id, false);
@@ -455,11 +474,15 @@ function launchTerminal(app) {
         observer.observe(el);
 
         term.onData(data => socket.emit('terminal-input', data));
-        term.onResize(({ cols, rows }) => socket.emit('terminal-resize', { cols, rows }));
+        term.onResize(({ cols, rows }) => {
+            log('app', `terminal resize  cols=${cols} rows=${rows}`);
+            socket.emit('terminal-resize', { cols, rows });
+        });
 
         const onOutput = data => term.write(data);
         socket.on('terminal-output', onOutput);
 
+        log('app', `launchTerminal: emitting '${app.startEvent}'  id=${app.id}`);
         socket.emit(app.startEvent);
     }, 60);
 }
@@ -487,15 +510,27 @@ function launchXpra(app) {
     });
     openWindows.set(app.id, win);
 
+    log('xpra', `launchXpra: emitting '${app.startEvent}'  id=${app.id}`);
     socket.emit(app.startEvent);
 
     socket.once(app.readyEvent, (data) => {
+        log('xpra', `readyEvent '${app.readyEvent}' received  port=${data.port}  id=${app.id}`);
         const el = document.getElementById(bodyId);
-        if (!el) return;
+        if (!el) {
+            log('err', `readyEvent: body element #${bodyId} not found — window may have been closed`);
+            return;
+        }
+        const host = window.location.hostname;
+        // Pass host+port so xpra JS connects its WebSocket directly to the
+        // container's published port instead of deriving it from window.location
+        const src = `/xpra/${data.port}/?floating_menu=0&sharing=1&host=${host}&port=${data.port}`;
+        log('xpra', `setting iframe src="${src}"`);
         el.innerHTML = `<iframe
-            src="/xpra/${data.port}/?floating_menu=0&sharing=1"
+            src="${src}"
             style="width:100%;height:100%;border:none;display:block;"
             allowfullscreen
+            onload="log('xpra','iframe onload  port=${data.port}')"
+            onerror="log('err','iframe onerror  port=${data.port}')"
         ></iframe>`;
     });
 }
@@ -503,9 +538,11 @@ function launchXpra(app) {
 // ── Launch dispatcher ──────────────────────────────────────────────────────
 function launchApp(app) {
     if (openWindows.has(app.id)) {
+        log('app', `launchApp: already open, focusing  id=${app.id}`);
         openWindows.get(app.id).focus();
         return;
     }
+    log('app', `launchApp: opening  id=${app.id}  type=${app.type}`);
     markRunning(app.id, true);
     if (app.type === 'terminal') launchTerminal(app);
     else launchXpra(app);

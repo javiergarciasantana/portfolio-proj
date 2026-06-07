@@ -14,9 +14,10 @@ export class TerminalGateway extends BaseDockerGateway {
   handleStartHaskell(@ConnectedSocket() client: Socket) {
     const app = APPS.find(a => a.id === 'haskell-tui');
     if (app?.command) {
+      console.log(`[PTY] start-haskell  client=${client.id}  binary=${app.command}`);
       this.startPtyApp(client, app.command);
     } else {
-      // Docker fallback until binary is deployed on host
+      console.log(`[PTY] start-haskell  client=${client.id}  no binary → Docker fallback`);
       this.startTerminalApp(client, 'haskell-tui');
     }
   }

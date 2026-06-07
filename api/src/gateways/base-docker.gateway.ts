@@ -26,6 +26,7 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
   constructor(protected readonly dockerService: DockerService) {}
 
   handleDisconnect(client: Socket) {
+    console.log(`[WS] client disconnected  id=${client.id}  hasPty=${!!client.data.ptyProcess}  hasContainer=${!!client.data.activeContainer}`);
     this.killPty(client);
     if (client.data.activeContainer) {
       this.cleanupContainer(client, 'Disconnected-Tab');
@@ -89,11 +90,14 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
   // ─── Docker GUI apps ───────────────────────────────────────────────────────
 
   protected async startGuiApp(client: Socket, config: GuiAppConfig) {
+    const ts = () => new Date().toISOString();
+    console.log(`[GUI][${ts()}] START  image=${config.image}  client=${client.id}`);
     try {
       const memory = (config.memoryMB || 512) * 1024 * 1024;
       const cpus = config.nanoCpus || 500000000;
-      const delay = config.delayMs || 4000; // 4s: xpra needs slightly longer than noVNC
+      const delay = config.delayMs || 4000;
 
+      console.log(`[GUI][${ts()}] createContainer  image=${config.image}  mem=${config.memoryMB}MB  delay=${delay}ms`);
       const container = await this.dockerService.createContainer({
         Image: config.image,
         ExposedPorts: { '8080/tcp': {} },
@@ -104,16 +108,23 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
           NanoCpus: cpus,
         },
       });
+      console.log(`[GUI][${ts()}] container created  id=${container.id}`);
 
       client.data.activeContainer = container;
       await container.start();
+      console.log(`[GUI][${ts()}] container started  id=${container.id}`);
 
       const containerInfo = await container.inspect();
-      const dynamicPort = containerInfo.NetworkSettings.Ports['8080/tcp'][0].HostPort;
+      const portBinding = containerInfo.NetworkSettings.Ports['8080/tcp'];
+      if (!portBinding || !portBinding[0]) {
+        throw new Error(`No port binding found for 8080/tcp on container ${container.id}`);
+      }
+      const dynamicPort = portBinding[0].HostPort;
+      console.log(`[GUI][${ts()}] port mapped  image=${config.image}  hostPort=${dynamicPort}`);
 
-      console.log(`[GUI] ${config.image} started on port ${dynamicPort}`);
-
+      console.log(`[GUI][${ts()}] waiting ${delay}ms then emitting '${config.eventName}' to client=${client.id}`);
       setTimeout(() => {
+        console.log(`[GUI][${ts()}] emit '${config.eventName}'  port=${dynamicPort}  client=${client.id}`);
         client.emit(config.eventName, {
           message: 'Server Ready',
           port: dynamicPort,
@@ -121,7 +132,7 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
       }, delay);
 
     } catch (error) {
-      console.error(`Error starting ${config.image}:`, error);
+      console.error(`[GUI][${ts()}] ERROR starting ${config.image}:`, error.message);
       client.emit('error', `Failed to start ${config.image}: ${error.message}`);
     }
   }
