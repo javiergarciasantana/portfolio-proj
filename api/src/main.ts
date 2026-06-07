@@ -11,11 +11,19 @@ async function bootstrap() {
   const xpraProxy = createProxyMiddleware<any, any>({
     changeOrigin: true,
     ws: true,
-    router: (req) => {
-      const m = req.url?.match(/\/xpra\/(\d+)/);
+    router: (req: any) => {
+      // Express strips the /xpra mount prefix from req.url, so use originalUrl
+      // for HTTP requests. WebSocket upgrades bypass Express and keep the full
+      // URL in req.url, where originalUrl is undefined.
+      const url: string = req.originalUrl ?? req.url ?? '';
+      const m = url.match(/\/xpra\/(\d+)/);
       return m ? `http://localhost:${m[1]}` : undefined;
     },
-    pathRewrite: (path: string) => path.replace(/^\/xpra\/\d+/, '') || '/',
+    pathRewrite: (path: string) => {
+      // path may be /PORT/rest (HTTP, Express-stripped) or /xpra/PORT/rest (WS)
+      const m = path.match(/^\/(?:xpra\/)?(\d+)(\/.*)?$/);
+      return m ? (m[2] || '/') : path;
+    },
   });
 
   app.use('/xpra', xpraProxy);
