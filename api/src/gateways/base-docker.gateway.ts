@@ -89,15 +89,58 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
 
   // ─── Docker GUI apps ───────────────────────────────────────────────────────
 
+  private async waitForXpraHttp(
+    port: string,
+    image: string,
+    timeoutMs = 30000,
+    intervalMs = 800,
+  ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const http = require('http') as typeof import('http');
+    const ts = () => new Date().toISOString();
+    const deadline = Date.now() + timeoutMs;
+    let attempt = 0;
+
+    while (Date.now() < deadline) {
+      attempt++;
+      const ok = await new Promise<boolean>(resolve => {
+        const req = http.get(
+          { hostname: 'localhost', port: Number(port), path: '/', timeout: 2000 },
+          res => {
+            console.log(`[GUI][${ts()}] health-check attempt=${attempt}  port=${port}  status=${res.statusCode}`);
+            res.destroy();
+            resolve(res.statusCode < 500);
+          },
+        );
+        req.on('error', err => {
+          console.log(`[GUI][${ts()}] health-check attempt=${attempt}  port=${port}  err=${err.message}`);
+          resolve(false);
+        });
+        req.on('timeout', () => {
+          console.log(`[GUI][${ts()}] health-check attempt=${attempt}  port=${port}  timeout`);
+          req.destroy();
+          resolve(false);
+        });
+      });
+
+      if (ok) {
+        console.log(`[GUI][${ts()}] xpra ready  image=${image}  port=${port}  attempts=${attempt}`);
+        return;
+      }
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+
+    throw new Error(`xpra on localhost:${port} not ready after ${timeoutMs}ms (${attempt} attempts)`);
+  }
+
   protected async startGuiApp(client: Socket, config: GuiAppConfig) {
     const ts = () => new Date().toISOString();
     console.log(`[GUI][${ts()}] START  image=${config.image}  client=${client.id}`);
     try {
       const memory = (config.memoryMB || 512) * 1024 * 1024;
       const cpus = config.nanoCpus || 500000000;
-      const delay = config.delayMs || 4000;
 
-      console.log(`[GUI][${ts()}] createContainer  image=${config.image}  mem=${config.memoryMB}MB  delay=${delay}ms`);
+      console.log(`[GUI][${ts()}] createContainer  image=${config.image}  mem=${config.memoryMB}MB`);
       const container = await this.dockerService.createContainer({
         Image: config.image,
         ExposedPorts: { '8080/tcp': {} },
@@ -117,19 +160,15 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
       const containerInfo = await container.inspect();
       const portBinding = containerInfo.NetworkSettings.Ports['8080/tcp'];
       if (!portBinding || !portBinding[0]) {
-        throw new Error(`No port binding found for 8080/tcp on container ${container.id}`);
+        throw new Error(`No port binding for 8080/tcp on container ${container.id}`);
       }
       const dynamicPort = portBinding[0].HostPort;
       console.log(`[GUI][${ts()}] port mapped  image=${config.image}  hostPort=${dynamicPort}`);
 
-      console.log(`[GUI][${ts()}] waiting ${delay}ms then emitting '${config.eventName}' to client=${client.id}`);
-      setTimeout(() => {
-        console.log(`[GUI][${ts()}] emit '${config.eventName}'  port=${dynamicPort}  client=${client.id}`);
-        client.emit(config.eventName, {
-          message: 'Server Ready',
-          port: dynamicPort,
-        });
-      }, delay);
+      await this.waitForXpraHttp(dynamicPort, config.image);
+
+      console.log(`[GUI][${ts()}] emit '${config.eventName}'  port=${dynamicPort}  client=${client.id}`);
+      client.emit(config.eventName, { message: 'Server Ready', port: dynamicPort });
 
     } catch (error) {
       console.error(`[GUI][${ts()}] ERROR starting ${config.image}:`, error.message);
