@@ -37,7 +37,6 @@ export class DockerService {
     return await this.docker.listContainers();
   }
 
-  // Pure Docker logic. No Sockets allowed here!
   public async removeContainer(container: Docker.Container): Promise<void> {
     try {
       await container.stop();
@@ -48,5 +47,13 @@ export class DockerService {
         console.error(`[Fatal] Could not kill container:`, killError.message);
       }
     }
+  }
+
+  public async pauseContainer(container: Docker.Container): Promise<void> {
+    await container.pause();
+  }
+
+  public async unpauseContainer(container: Docker.Container): Promise<void> {
+    await container.unpause();
   }
 }

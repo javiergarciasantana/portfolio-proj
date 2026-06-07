@@ -2,12 +2,21 @@ import { Socket } from 'socket.io';
 import { OnGatewayDisconnect } from '@nestjs/websockets';
 import { DockerService } from 'src/docker/docker.service';
 
+// Lazy-load node-pty so the app boots even if native bindings aren't compiled yet
+let pty: typeof import('node-pty') | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  pty = require('node-pty');
+} catch {
+  console.warn('[PTY] node-pty unavailable — run `npm install` to enable direct terminal spawning');
+}
+
 export interface GuiAppConfig {
   image: string;
-  eventName: string;       // e.g., 'labyrinth-madness-started'
-  memoryMB?: number;       // Defaults to 512
-  nanoCpus?: number;       // Defaults to 0.5 CPU
-  delayMs?: number;        // Defaults to 3000
+  eventName: string;
+  memoryMB?: number;
+  nanoCpus?: number;
+  delayMs?: number;
 }
 
 export abstract class BaseDockerGateway implements OnGatewayDisconnect {
@@ -16,36 +25,74 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
 
   constructor(protected readonly dockerService: DockerService) {}
 
-  // Automatically fires when a user closes the browser tab
   handleDisconnect(client: Socket) {
-    this.cleanupContainer(client, 'Disconnected-Tab');
+    this.killPty(client);
+    if (client.data.activeContainer) {
+      this.cleanupContainer(client, 'Disconnected-Tab');
+    }
   }
 
-  // PROTECTED: Only accessible by child gateways (FormFiller, Haskell, etc.)
   protected async cleanupContainer(client: Socket, appName: string) {
     const container = client.data.activeContainer;
-    
     if (!container) {
       console.log(`[Warning] No active container to stop for ${appName}.`);
       return;
     }
-
     console.log(`[Shutdown] Stopping ${appName} (ID: ${container.id})...`);
-    
-    // Delegate the actual killing to the pure Docker service
     await this.dockerService.removeContainer(container);
-    
-    // Clear the WebSocket session memory
     client.data.activeContainer = null;
     console.log(`[Success] ${appName} memory cleared.`);
   }
 
-  // 2. Centralized GUI App Logic
+  // ─── PTY (direct process) ──────────────────────────────────────────────────
+
+  protected startPtyApp(client: Socket, command: string, args: string[] = []) {
+    if (!pty) {
+      client.emit('terminal-output', '\r\n[Error] node-pty not available. Run `npm install` on the server.\r\n');
+      return;
+    }
+    try {
+      const ptyProcess = pty.spawn(command, args, {
+        name: 'xterm-256color',
+        cols: 100,
+        rows: 30,
+        cwd: process.env.HOME || '/home',
+        env: process.env as Record<string, string>,
+      });
+
+      client.data.ptyProcess = ptyProcess;
+
+      ptyProcess.onData((data) => {
+        client.emit('terminal-output', data);
+      });
+
+      ptyProcess.onExit(({ exitCode }) => {
+        client.emit('terminal-output', `\r\n[Process exited with code ${exitCode}]\r\n`);
+        client.data.ptyProcess = null;
+      });
+    } catch (error) {
+      client.emit('terminal-output', `\r\n[Failed to start ${command}]: ${error.message}\r\n`);
+    }
+  }
+
+  protected resizePty(client: Socket, cols: number, rows: number) {
+    client.data.ptyProcess?.resize(cols, rows);
+  }
+
+  protected killPty(client: Socket) {
+    if (client.data.ptyProcess) {
+      client.data.ptyProcess.kill();
+      client.data.ptyProcess = null;
+    }
+  }
+
+  // ─── Docker GUI apps ───────────────────────────────────────────────────────
+
   protected async startGuiApp(client: Socket, config: GuiAppConfig) {
     try {
       const memory = (config.memoryMB || 512) * 1024 * 1024;
       const cpus = config.nanoCpus || 500000000;
-      const delay = config.delayMs || 3000;
+      const delay = config.delayMs || 4000; // 4s: xpra needs slightly longer than noVNC
 
       const container = await this.dockerService.createContainer({
         Image: config.image,
@@ -63,13 +110,13 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
 
       const containerInfo = await container.inspect();
       const dynamicPort = containerInfo.NetworkSettings.Ports['8080/tcp'][0].HostPort;
-      
-      console.log(`[GUI] ${config.image} started dynamically on port ${dynamicPort}`);
+
+      console.log(`[GUI] ${config.image} started on port ${dynamicPort}`);
 
       setTimeout(() => {
-        client.emit(config.eventName, { 
+        client.emit(config.eventName, {
           message: 'Server Ready',
-          port: dynamicPort 
+          port: dynamicPort,
         });
       }, delay);
 
@@ -79,7 +126,7 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
     }
   }
 
-  // 3. Centralized Terminal App Logic
+  // Kept for legacy terminal-via-Docker fallback
   protected async startTerminalApp(client: Socket, imageName: string) {
     try {
       client.emit('terminal-output', `Starting ${imageName}...\r\n`);
@@ -97,15 +144,14 @@ export abstract class BaseDockerGateway implements OnGatewayDisconnect {
       const stream = await container.attach({
         stream: true, stdout: true, stderr: true, stdin: true,
       });
-      
+
       client.data.stream = stream;
-      
+
       stream.on('data', (chunk) => {
         client.emit('terminal-output', chunk.toString('utf8'));
       });
-      
+
       await container.start();
-      
     } catch (error) {
       client.emit('terminal-output', `\r\nError: ${error.message}\r\n`);
     }
