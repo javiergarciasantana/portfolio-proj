@@ -1,221 +1,371 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portfolio OS</title>
+
     <script src="https://cdn.jsdelivr.net/npm/winbox@0.2.82/dist/winbox.bundle.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <!-- noVNC RFB client loaded as ES module, exposed on window for inline scripts -->
     <script type="module">
-      import RFB from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.3.0/core/rfb.js';
-      window.RFB = RFB;
+        import RFB from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.3.0/core/rfb.js';
+        window.RFB = RFB;
     </script>
+
     <style>
+        :root {
+            --bar-h: 28px;
+            --dock-h: 72px;
+            --glass-dark: rgba(20, 20, 22, 0.88);
+            --glass-mid: rgba(255,255,255,0.10);
+            --glass-border: rgba(255,255,255,0.10);
+            --text: rgba(255,255,255,0.90);
+            --text-dim: rgba(255,255,255,0.50);
+            --accent: #0a84ff;
+            --win-titlebar: #323234;
+            --win-body: #1c1c1e;
+            --red: #FF5F57; --yellow: #FEBC2E; --green: #28C840;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            margin: 0;
             overflow: hidden;
-            background: url('https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=2560&auto=format&fit=crop') no-repeat center center fixed;
+            width: 100vw; height: 100vh;
+            background: url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=2560&auto=format&fit=crop')
+                        no-repeat center center fixed;
             background-size: cover;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
-        .dock {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            padding: 10px 20px;
-            border-radius: 20px;
-            display: flex;
-            gap: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+
+        /* ── Menu Bar ───────────────────────────────────────────────────────── */
+        #menubar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: var(--bar-h);
+            background: var(--glass-dark);
+            backdrop-filter: blur(40px) saturate(200%);
+            border-bottom: 0.5px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 14px; z-index: 100000; user-select: none;
         }
+        .bar-left, .bar-right { display: flex; align-items: center; gap: 2px; }
+        .bar-logo { font-size: 15px; color: var(--text); padding: 0 8px 0 2px; }
+        .bar-item {
+            color: var(--text); font-size: 13px; font-weight: 400;
+            padding: 2px 9px; border-radius: 5px; cursor: default;
+            letter-spacing: -0.01em; transition: background 0.12s; white-space: nowrap;
+        }
+        .bar-item:hover { background: rgba(255,255,255,0.12); }
+        .bar-item.strong { font-weight: 600; }
+        .bar-right { gap: 14px; }
+        #clock { color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; }
+
+        /* ── Desktop ────────────────────────────────────────────────────────── */
+        #desktop { position: fixed; top: var(--bar-h); left: 0; right: 0; bottom: 0; z-index: 1; }
+
+        /* ── Dock ───────────────────────────────────────────────────────────── */
+        #dock {
+            position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.11);
+            backdrop-filter: blur(30px) saturate(180%);
+            border: 0.5px solid rgba(255,255,255,0.20);
+            border-bottom-color: rgba(255,255,255,0.08);
+            padding: 8px 14px 6px; border-radius: 20px;
+            display: flex; align-items: flex-end; gap: 6px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3),
+                        inset 0 1px 0 rgba(255,255,255,0.18);
+            z-index: 99998;
+        }
+
+        /* ── App Icon ───────────────────────────────────────────────────────── */
         .app-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            transition: transform 0.2s;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            position: relative; display: flex; flex-direction: column;
+            align-items: center; cursor: pointer; padding-bottom: 2px;
         }
-        .app-icon:hover { transform: translateY(-10px) scale(1.1); }
-        .icon-terminal { background: linear-gradient(135deg, #2b5876, #4e4376); }
+        .app-icon-shell {
+            width: 54px; height: 54px; border-radius: 13px;
+            display: flex; align-items: center; justify-content: center; font-size: 26px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35),
+                        inset 0 1px 0 rgba(255,255,255,0.22),
+                        inset 0 -1px 0 rgba(0,0,0,0.15);
+            transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+            transform-origin: bottom center; position: relative; overflow: hidden;
+        }
+        .app-icon-shell::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(170deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 55%);
+            border-radius: inherit; pointer-events: none;
+        }
+        .app-icon:hover .app-icon-shell { transform: translateY(-14px) scale(1.22); }
+        .app-tooltip {
+            position: absolute; bottom: calc(100% + 18px); left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            background: rgba(20,20,22,0.92); backdrop-filter: blur(12px);
+            color: var(--text); font-size: 11.5px; font-weight: 500;
+            white-space: nowrap; padding: 4px 10px; border-radius: 7px;
+            border: 0.5px solid var(--glass-border);
+            opacity: 0; transition: opacity 0.12s, transform 0.12s; pointer-events: none;
+        }
+        .app-icon:hover .app-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .app-dot {
+            width: 4px; height: 4px; border-radius: 50%;
+            background: rgba(255,255,255,0.65); margin-top: 3px; transition: opacity 0.2s;
+        }
+        .app-dot.hidden { opacity: 0; }
+
+        /* ── WinBox macOS overrides ──────────────────────────────────────────── */
+        .winbox {
+            border-radius: 12px !important;
+            box-shadow: 0 0 0 0.5px rgba(255,255,255,0.07),
+                        0 22px 70px rgba(0,0,0,0.75), 0 4px 16px rgba(0,0,0,0.4) !important;
+            overflow: hidden !important;
+        }
+        .winbox .wb-drag { background: var(--win-titlebar) !important; border-bottom: 0.5px solid rgba(255,255,255,0.07) !important; }
+        .winbox .wb-title { color: rgba(255,255,255,0.80) !important; font-size: 13px !important; font-weight: 500 !important; }
+        .winbox .wb-control {
+            position: absolute !important; left: 10px !important; right: auto !important;
+            top: 50% !important; transform: translateY(-50%) !important;
+            display: flex !important; flex-direction: row-reverse !important; gap: 7px !important;
+        }
+        .winbox .wb-min, .winbox .wb-max, .winbox .wb-close, .winbox .wb-full {
+            width: 12px !important; height: 12px !important; border-radius: 50% !important;
+            background-image: none !important; position: static !important;
+        }
+        .winbox .wb-full { display: none !important; }
+        .winbox .wb-close  { background-color: var(--red)    !important; }
+        .winbox .wb-min    { background-color: var(--yellow)  !important; }
+        .winbox .wb-max    { background-color: var(--green)   !important; }
+        .winbox:not(.focus) .wb-close,
+        .winbox:not(.focus) .wb-min,
+        .winbox:not(.focus) .wb-max { background-color: rgba(100,100,100,0.6) !important; }
+        .winbox .wb-body { background: var(--win-body) !important; }
+
+        /* ── Loading / Error states ──────────────────────────────────────────── */
+        .center-state {
+            height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 14px; color: var(--text-dim);
+        }
+        .spinner {
+            width: 28px; height: 28px;
+            border: 2px solid rgba(255,255,255,0.08); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin 0.75s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .center-state span { font-size: 12.5px; font-weight: 400; }
+        .error-icon { font-size: 28px; }
     </style>
 </head>
 <body>
 
-    <div class="dock">
-        <div class="app-icon icon-terminal" onclick="openHaskellTerminal()">Haskell</div>
-        <div class="app-icon icon-terminal" onclick="openFormFillerJavaFX()">FormFiller</div>
-        <div class="app-icon icon-terminal" onclick="openLabyrinthMadnessJavaProc()">LabyrinthMadness</div>
-
+<div id="menubar">
+    <div class="bar-left">
+        <span class="bar-logo">⌘</span>
+        <span class="bar-item strong">Portfolio OS</span>
+        <span class="bar-item">Finder</span>
+        <span class="bar-item">Projects</span>
+        <span class="bar-item">About</span>
     </div>
+    <div class="bar-right">
+        <div id="clock"></div>
+    </div>
+</div>
 
-    <script>
-        // Conectar con el backend de NestJS
-        const socket = io();
+<div id="desktop"></div>
+<div id="dock"></div>
 
-        function openHaskellTerminal() {
-            // Creamos la ventana de WinBox
-            const win = new WinBox("Haskell programs", {
-                width: "1200px",
-                height: "800px",
-                x: "center",
-                y: "center",
-                background: "#2b5876",
-                // Creamos un div vacío para alojar la terminal
-                html: "<div id='terminal-container' style='width:100%; height:100%; padding:5px; background: #000;'></div>",         
-                onclose: function() {
-                    console.log("Cerrando ventana WinBox, deteniendo contenedor...");
-                    socket.emit('stop-haskell');
-                }
-            });
+<script>
+const socket = io();
 
-            // Esperamos unos milisegundos a que WinBox pinte el div en pantalla
-            setTimeout(() => {
-                // Configuramos la terminal Xterm
-                const term = new Terminal({
-                    theme: { background: '#000000' },
-                    fontFamily: 'monospace',
-                    cursorBlink: true
-                });
-                
-                term.open(document.getElementById('terminal-container'));
+// ── Debug logger ───────────────────────────────────────────────────────────
+const log = (() => {
+    const c = { ws:'#4fc3f7', app:'#a5d6a7', vnc:'#ffb74d', err:'#ef9a9a', info:'#e0e0e0' };
+    return (tag, ...args) => {
+        const color = c[tag] || c.info;
+        console.log(`%c[${tag}] ${new Date().toISOString()}`, `color:${color};font-weight:bold`, ...args);
+    };
+})();
 
-                // 1. Cuando tecleas en la web, se envía al backend
-                term.onData(data => {
-                    socket.emit('terminal-input', data);
-                });
+socket.on('connect',       () => log('ws', `connected  id=${socket.id}`));
+socket.on('disconnect',    reason => log('ws', `disconnected  reason=${reason}`));
+socket.on('connect_error', err => log('err', `connect_error  ${err.message}`));
+socket.on('app-error',     ({ app, message }) => log('err', `app-error  app=${app}  ${message}`));
 
-                // 2. Cuando el backend recibe datos de Docker, los pinta en la web
-                socket.on('terminal-output', data => {
-                    term.write(data);
-                });
+// ── Clock ──────────────────────────────────────────────────────────────────
+function tick() {
+    const now = new Date();
+    const d = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    const t = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+    document.getElementById('clock').textContent = `${d}  ${t}`;
+}
+tick(); setInterval(tick, 1000);
 
-                // 3. ¡Disparamos la creación del contenedor!
-                socket.emit('start-haskell');
+// ── App registry ───────────────────────────────────────────────────────────
+const APPS = [
+    {
+        id: 'haskell-tui', name: 'Haskell Functions', type: 'terminal',
+        icon: 'λ', gradientStart: '#1a1a2e', gradientEnd: '#4e4376',
+        language: 'Haskell', description: 'Purely functional demos: sorting, trees, combinatorics',
+        startEvent: 'start-haskell', stopEvent: 'stop-haskell',
+        window: { width: 800, height: 500 },
+    },
+    {
+        id: 'form-filler', name: 'FormFiller', type: 'vnc',
+        icon: '📋', gradientStart: '#0f4c75', gradientEnd: '#1b262c',
+        language: 'Java / JavaFX', description: 'Automated form processing and data entry',
+        startEvent: 'start-form-filler', stopEvent: 'stop-form-filler',
+        readyEvent: 'form-filler-started',
+        window: { width: 512, height: 640 },
+    },
+    {
+        id: 'labyrinth-madness', name: 'Labyrinth Madness', type: 'vnc',
+        icon: '🌀', gradientStart: '#0f0c29', gradientEnd: '#302b63',
+        language: 'Java / Processing', description: 'Real-time maze generation and pathfinding',
+        startEvent: 'start-labyrinth-madness', stopEvent: 'stop-labyrinth-madness',
+        readyEvent: 'labyrinth-madness-started',
+        window: { width: 608, height: 740 },
+    },
+];
 
-            }, 100);
-        }
+// ── Window tracking ────────────────────────────────────────────────────────
+const openWindows = new Map();
 
-        function openFormFillerJavaFX() {
-            const win = new WinBox("FormFiller App", {
-                width: "512px",
-                height: "600px",
-                x: "center",
-                y: "center",
-                background: "#2b5876",
-                // Div limpio, sin Flexbox forzados
-                html: "<div id='form-filler-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
-                onclose: function() {
-                    socket.emit('stop-form-filler');
-                }
-            });
+function markRunning(id, running) {
+    const dot = document.querySelector(`[data-id="${id}"] .app-dot`);
+    if (dot) dot.classList.toggle('hidden', !running);
+}
 
-            // 1. Le pides a NestJS que arranque el contenedor
-            socket.emit('start-form-filler');
+function onWindowClose(app) {
+    log('app', `close  id=${app.id}  emitting '${app.stopEvent}'`);
+    socket.emit(app.stopEvent);
+    openWindows.delete(app.id);
+    markRunning(app.id, false);
+}
 
-            // 2. Usamos socket.once en lugar de socket.on para que no se dupliquen 
-            // los listeners si cierras y vuelves a abrir la app varias veces.
-            socket.once('form-filler-started', (data) => {
-                console.log("FormFiller corriendo en el puerto:", data.port);
-                
-                // La IP de tu servidor (o localhost si estás en tu Mac Sequoia)
-                const serverIP = window.location.hostname;
-                console.log("Ip del servidor: " + serverIP);
-                // La URL estándar donde noVNC expone el websocket es /websockify
-                const wsUrl = `ws://${serverIP}:${data.port}/websockify`;
-                
-                // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
-                const container = document.getElementById('form-filler-container');
-                const rfb = new window.RFB(container, wsUrl, {
-                    // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
-                    credentials: { password: '' } 
-                });
+// ── Terminal app (Haskell PTY) ─────────────────────────────────────────────
+function launchTerminal(app) {
+    const bodyId = `term-${app.id}`;
+    const win = new WinBox(app.name, {
+        width: `${app.window.width}px`, height: `${app.window.height}px`,
+        x: 'center', y: 'center', background: '#323234',
+        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;"></div>`,
+        onclose() { onWindowClose(app); term?.dispose(); return false; },
+    });
+    openWindows.set(app.id, win);
 
-                // 4. Configuración clave de interfaz gráfica
-                rfb.scaleViewport = true;    // Escala la imagen para que encaje
-                //rfb.clipViewport = true;     // Corta los bordes muertos para evitar "fantasmas"
-                rfb.resizeSession = false;   // Evita el error rojo de la consola
-                rfb.showDotCursor = true;  // Puntero local
+    let term;
+    setTimeout(() => {
+        const el = document.getElementById(bodyId);
+        if (!el) return;
+        term = new Terminal({
+            theme: { background:'#000', foreground:'#f8f8f2', cursor:'#f8f8f2',
+                     black:'#21222c', red:'#ff5555', green:'#50fa7b', yellow:'#f1fa8c',
+                     blue:'#bd93f9', magenta:'#ff79c6', cyan:'#8be9fd', white:'#f8f8f2' },
+            fontFamily: '"SF Mono","Cascadia Code","Fira Code",monospace',
+            fontSize: 13, lineHeight: 1.45, cursorBlink: true, cursorStyle: 'bar',
+        });
+        const fit = new FitAddon.FitAddon();
+        term.loadAddon(fit);
+        term.open(el);
+        fit.fit();
+        new ResizeObserver(() => fit.fit()).observe(el);
+        term.onData(data => socket.emit('terminal-input', data));
+        term.onResize(({ cols, rows }) => socket.emit('terminal-resize', { cols, rows }));
+        socket.on('terminal-output', data => term.write(data));
+        log('app', `launchTerminal: emitting '${app.startEvent}'`);
+        socket.emit(app.startEvent);
+    }, 60);
+}
 
-                // Eventos opcionales para saber si ha ido bien o mal
-                rfb.addEventListener("connect", () => {
-                    console.log("¡Conexión VNC establecida con éxito!");
-                });
-                
-                rfb.addEventListener("disconnect", (e) => {
-                    console.log("Conexión VNC cerrada", e.detail.reason);
-                });
-            });
-        }
-        function openLabyrinthMadnessJavaProc() {
-            const win = new WinBox("Labyrith Madness App", {
-                width: "608px",
-                height: "700px",
-                x: "center",
-                y: "center",
-                background: "#2b5876",
-                // Div limpio, sin Flexbox forzados
-                html: "<div id='labyrinth-madness-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
-                onclose: function() {
-                    socket.emit('stop-labyrinth-madness');
-                }
-            });
+// ── VNC app (always-on noVNC) ─────────────────────────────────────────────
+function launchVnc(app) {
+    const bodyId = `vnc-${app.id}`;
+    const win = new WinBox(app.name, {
+        width: `${app.window.width}px`, height: `${app.window.height}px`,
+        x: 'center', y: 'center', background: '#323234',
+        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;">
+                 <div class="center-state">
+                   <div class="spinner"></div>
+                   <span>Connecting to ${app.name}…</span>
+                   <span style="font-size:11px;opacity:.6">${app.language}</span>
+                 </div>
+               </div>`,
+        onclose() { onWindowClose(app); return false; },
+    });
+    openWindows.set(app.id, win);
 
-            // 1. Le pides a NestJS que arranque el contenedor
-            socket.emit('start-labyrinth-madness');
+    log('vnc', `emitting '${app.startEvent}'  id=${app.id}`);
+    socket.emit(app.startEvent);
 
-            // 2. Usamos socket.once en lugar de socket.on para que no se dupliquen 
-            // los listeners si cierras y vuelves a abrir la app varias veces.
-            socket.once('labyrinth-madness-started', (data) => {
-                console.log("Labyrinth Madness corriendo en el puerto:", data.port);
-                
-                // La IP de tu servidor (o localhost si estás en tu Mac Sequoia)
-                const serverIP = window.location.hostname;
-                console.log("Ip del servidor: " + serverIP);
-                // La URL estándar donde noVNC expone el websocket es /websockify
-                const wsUrl = `ws://${serverIP}:${data.port}/websockify`;
-                
-                // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
-                const container = document.getElementById('labyrinth-madness-container');
-                const rfb = new window.RFB(container, wsUrl, {
-                    // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
-                    credentials: { password: '' } 
-                });
+    // Backend does a TCP health-check on the fixed VNC port then replies
+    socket.once(app.readyEvent, ({ port }) => {
+        log('vnc', `readyEvent port=${port}  id=${app.id}`);
+        const el = document.getElementById(bodyId);
+        if (!el) return;
 
-                // 4. Configuración clave de interfaz gráfica
-                rfb.scaleViewport = true;    // Escala la imagen para que encaje
-                //rfb.clipViewport = true;     // Corta los bordes muertos para evitar "fantasmas"
-                rfb.resizeSession = false;   // Evita el error rojo de la consola
-                rfb.showDotCursor = true;  // Puntero local
+        // Clear the loading spinner — noVNC will fill the container
+        el.innerHTML = '';
 
-                // --- PERFORMANCE INJECTION ---
-                // We set quality and compression directly on the RFB object
-                // 0 is lowest quality/fastest, 9 is highest quality/slowest. 
-                // 6 is the sweet spot.
-                rfb.qualityLevel = 6;
-                rfb.compressionLevel = 6;
+        const host = window.location.hostname;
+        const wsUrl = `ws://${host}:${port}/websockify`;
+        log('vnc', `connecting RFB  url=${wsUrl}`);
 
-                // Eventos opcionales para saber si ha ido bien o mal
-                rfb.addEventListener("connect", () => {
-                    console.log("¡Conexión VNC establecida con éxito!");
-                });
-                
-                rfb.addEventListener("disconnect", (e) => {
-                    console.log("Conexión VNC cerrada", e.detail.reason);
-                });
-            });
-        }
-    </script>
+        // Wait for RFB to be loaded from the ES module (tiny race on slow connections)
+        const connect = () => {
+            if (!window.RFB) { setTimeout(connect, 50); return; }
+            const rfb = new window.RFB(el, wsUrl, { credentials: { password: '' } });
+            rfb.scaleViewport = true;
+            rfb.showDotCursor = true;
+            rfb.addEventListener('connect',    ()  => log('vnc', `RFB connected  port=${port}`));
+            rfb.addEventListener('disconnect', (e) => log('vnc', `RFB disconnected  reason=${e.detail.reason}`));
+        };
+        connect();
+    });
+
+    // Handle service-down errors from gateway
+    socket.once('app-error', ({ app: errApp, message }) => {
+        if (errApp !== app.id) return;
+        log('err', `app-error  ${message}`);
+        const el = document.getElementById(bodyId);
+        if (el) el.innerHTML = `
+            <div class="center-state">
+              <span class="error-icon">⚠️</span>
+              <span>${app.name} is offline</span>
+              <span style="font-size:11px;opacity:.5;text-align:center;padding:0 16px">${message}</span>
+            </div>`;
+        markRunning(app.id, false);
+    });
+}
+
+// ── Launch dispatcher ──────────────────────────────────────────────────────
+function launchApp(app) {
+    if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+    log('app', `launch  id=${app.id}  type=${app.type}`);
+    markRunning(app.id, true);
+    if (app.type === 'terminal') launchTerminal(app);
+    else launchVnc(app);
+}
+
+// ── Build Dock ─────────────────────────────────────────────────────────────
+const dock = document.getElementById('dock');
+APPS.forEach(app => {
+    const el = document.createElement('div');
+    el.className = 'app-icon';
+    el.dataset.id = app.id;
+    el.innerHTML = `
+        <div class="app-tooltip">${app.name}</div>
+        <div class="app-icon-shell"
+             style="background:linear-gradient(145deg,${app.gradientStart},${app.gradientEnd})">
+            <span>${app.icon}</span>
+        </div>
+        <div class="app-dot hidden"></div>`;
+    el.addEventListener('click', () => launchApp(app));
+    dock.appendChild(el);
+});
+</script>
 </body>
 </html>

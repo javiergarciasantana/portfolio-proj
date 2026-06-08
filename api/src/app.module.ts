@@ -1,19 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { DockerModule } from './docker/docker.module';
-import { TerminalGateway } from './gateways/terminal.gateway';
-import { JavaFxGateway } from './gateways/javafx.gateway';
-import { JavaProcGateway } from './gateways/javaproc.gateway';
-import { DockerService } from './docker/docker.service';
+import { NativeAppGateway } from './gateways/native-app.gateway';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'), // Aquí vivirá el frontend
+      rootPath: join(__dirname, '..', 'public'),
     }),
-    DockerModule,
   ],
-  providers: [TerminalGateway, JavaFxGateway, JavaProcGateway, DockerService],
+  providers: [NativeAppGateway],
 })
 export class AppModule {}
