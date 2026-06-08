@@ -27,8 +27,6 @@
     "@nestjs/serve-static": "^5.0.4",
     "@nestjs/websockets": "^11.1.17",
     "dockerode": "^4.0.10",
-    "http-proxy-middleware": "^3.0.6",
-    "node-pty": "^1.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

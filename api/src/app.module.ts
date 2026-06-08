@@ -6,16 +6,14 @@ import { TerminalGateway } from './gateways/terminal.gateway';
 import { JavaFxGateway } from './gateways/javafx.gateway';
 import { JavaProcGateway } from './gateways/javaproc.gateway';
 import { DockerService } from './docker/docker.service';
-import { AppRegistryController } from './app-registry.controller';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'),
+      rootPath: join(__dirname, '..', 'public'), // Aquí vivirá el frontend
     }),
     DockerModule,
   ],
-  controllers: [AppRegistryController],
   providers: [TerminalGateway, JavaFxGateway, JavaProcGateway, DockerService],
 })
 export class AppModule {}

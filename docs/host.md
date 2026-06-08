@@ -122,7 +122,7 @@ exit
 Install the Docker engine using the official convenience script.
 ```bash
 # Download and execute the Docker install script
-curl -fsSL https://get.docker.com -o get-docker.sh
+curl -fsSL [https://get.docker.com](https://get.docker.com) -o get-docker.sh
 sudo sh get-docker.sh
 ```
 
@@ -171,7 +171,7 @@ Set up a secure mesh VPN to access the server from anywhere, and enable Wake-on-
 **Tailscale VPN:**
 ```bash
 # Install and authenticate Tailscale
-curl -fsSL https://tailscale.com/install.sh | sh
+curl -fsSL [https://tailscale.com/install.sh](https://tailscale.com/install.sh) | sh
 sudo tailscale up
 ```
 
@@ -208,77 +208,26 @@ WantedBy=multi-user.target
 sudo systemctl enable wol.service
 sudo systemctl start wol.service
 ```
-## Portfolio Deployment
+## Commands
 
-### 1. Clone and install
+### Docker
+
+- Creating new image
 ```bash
-git clone https://github.com/javiergarciasantana/portfolio-proj.git
-cd portfolio-proj/api
-npm install
-```
-
-### 2. Build Docker images for GUI apps
-Each GUI project has its own `Dockerfile`. Clone the repo and build from inside it.
-```bash
-# FormFiller
-git clone https://github.com/javiergarciasantana/form-filler.git
-cd form-filler && docker build --no-cache -t form-filler .
-
-# Labyrinth Madness
-git clone https://github.com/javiergarciasantana/labyrinth-madness.git
-cd labyrinth-madness && docker build --no-cache -t labyrinth-madness .
-```
-
-### 3. Deploy Haskell binary (terminal apps)
-Terminal apps run directly on the host via `node-pty` — no Docker needed.
-Compile the binary and place it at the path set in `api/src/app-registry.controller.ts`.
-```bash
-# Default expected path
-/opt/portfolio/haskell-tui
-```
-
-### 4. Start the backend
-```bash
-cd portfolio-proj/api
-npm run start:prod
-# or for development with live reload:
-npm run start:dev
-```
-
-The NestJS server listens on port `3000`. Access via Tailscale IP.
-
-### 5. xpra requirement on GUI containers
-GUI app Dockerfiles must use `xpra` instead of `x11vnc + noVNC`. Each container's `start.sh` runs:
-```bash
-xpra start :0 \
-  --bind-tcp=0.0.0.0:8080 \
-  --html=on \
-  --start="java -jar /app/App.jar" \
-  --exit-with-children=yes \
-  --daemon=no \
-  --encoding=x264
-```
-
----
-
-## Docker reference
-
-```bash
-# Build image
 docker build --no-cache -t [IMAGE-NAME] .
+```
+- Running new image
 
-# Run standalone (testing)
-docker run --rm -p 8080:8080 [IMAGE-NAME]
+```bash
+docker run -p 8080:8080 [IMAGE-NAME]
+```
 
-# Kill running container by ancestor image
+- Removing a running image
+
+```sh
+// By exact name
 docker rm -f $(docker ps -q --filter ancestor=[IMAGE-NAME])
 
-# Kill by container ID
-docker rm -f bc592c2343fb
-
-# List running containers
-docker ps
-
-# Check container logs
-docker logs [CONTAINER-ID]
+// By container id
+docker rm -f bc592c2343fb 
 ```
