@@ -1,191 +1,190 @@
-# My portfolio OS project 
+# Portfolio OS
 
 ![current-state-of-the-webapp](./docs/image.png)
 
-The mere purpose of this repo, is to be able to display my assorment of projects that I have posted as repos in [GitHub](https://github.com/javiergarciasantana).
+A macOS-style web desktop that runs my programming projects as live, interactive windows in the browser — no installation required for visitors. Each project launches in its own floating window with native controls (PTY terminal, VNC stream, or static card).
 
-These range from simple terminal programs to full applications made with a purpose in mind wether it is to showcase an algorithm or simply make something that uses a `cool`
-library.
-
-The idea behind the repo comes from the difficultness to run all my programs, since they are all written in various languages, installing packages and configuring frameworks is extremely tedious and not too fun, therefore i intend to simulate a desktop environment using `TypeScript` and `NextJS` where all of my programs can be ran like desktop applications that are already installed.
+Deployed on a MacBook 2010 (Core 2 Duo 2.4 GHz, 10 GB RAM, Debian 12 headless).
 
 ---
 
-## Table of Contents
+## Projects
 
-* [Host machine used to run this project](./docs/host.md)
-* [Inner workings](#inner-workings)
-* [Managing Docker images](#managing-docker-images)
-
-## My Showcased projects
-
-Speak about each single implemented proj and talk about the programming language used and functionality briefly.
-
-* [Labyrinth Madness]()
-* [Haskell Functions]()
-* [FormFiller]()
-* [Polygon Triangulation]()
-* [Product-E-Match]()
-
-## Inner workings
-
-### Used technologies
-- [Debian 12]()
-- [Node.js]()
-- [NestJS]()
-- [NextJS]()
-- [TypeScript]()
-- [Docker]()
-- [dockerode]()
-- [Socket.io]()
-- [Websockets]()
-- [VNC]()
-- [noVNC]()
-- [Xvfb]()
+| App | Language | Type | How it runs |
+|---|---|---|---|
+| Haskell Functions | Haskell | Terminal | node-pty → xterm.js |
+| FormFiller | Java / JavaFX | VNC | Xvfb + x11vnc + noVNC |
+| Labyrinth Madness | Java / Processing | VNC | Xvfb + x11vnc + noVNC |
+| N-Queens Parallel | C++ / OpenMP | Terminal | node-pty → xterm.js |
+| Polygon Triangulation | C++ / GLFW / OpenGL | VNC | Xvfb + Mesa SW GL + noVNC |
+| WP Web Snatcher | Chrome Extension (MV3) | Info card | Static — no server process |
 
 ---
 
-### Docker images and their greatness
-
-
-
----
-
-### Many programs, many ways of running
-Having fully-fledged applications just a click away is no easy task, and that is exactly where `Docker` and dockerode come in handy. On my server, I can clone my repositories, which are already equipped with their own `Dockerfiles`, to build images that can be dynamically spun up by the backend.
-
-This architecture allows us to start any program without a hitch. Because the `Docker` image already contains the underlying OS, the environment variables, and all the necessary dependencies, it is perfectly isolated and just waiting to be executed. Every time an application is launched, a fresh, clean environment is born.
-
-While `Docker` handles the heavy lifting of containerization, dockerode acts as the crucial bridge. It allows our NestJS backend to communicate directly with the `Debian` server's `Docker` engine via its internal socket `(/var/run/docker.sock)`. Instead of relying on manual terminal commands, our `Node.js` code can programmatically create, start, attach to, and securely destroy these containers on the fly.
-
----
-
-### My program is running! But I can't see it :(
-
-Indeed, even if the program is running, we can just see what we have programmed in the `HTML` code (yes I use `tsx` files i know, but they return spiced up `HTML` ready for the browser to consume).
-
-In order to see what is happening when running a program we need something called `WebSockets`, which i am a big fan of. The internet says that a `Websocket` is a protocol providing full-duplex, bidirectional communication channels over a single TCP connection. And that's all good and dandy really, but in practice it's actually more like a direct, two-way phone call between one specific browser tab and the server. It's a persistent, dedicated pipe.
-
-However, because we are using `Socket.io` (which sits on top of WebSockets), `Socket.io` introduces an event-based system (socket.on('event')). This is what makes it feel like tuning into a TV or radio station! Socket.io's event system lets you "tune in" to specific channels (like 'terminal-output') over that dedicated WebSocket phone line.
-
-```TypeScript
-socket.on('terminal-output', data => {
-  // Takes the raw text (and hidden color codes) from Docker and 
-  // renders it in the xterm.js UI
-    term.write(data);
-});
+## Architecture
 
 ```
+Browser
+  └── Socket.IO ──────────────────► NestJS (port 3000)
+  └── noVNC WebSocket ─────────────► websockify (port 609x)
+                                          └── x11vnc (port 591x)
+                                                └── Xvfb (:1x)
+                                                      └── App process
+```
+
+### Session pool
+
+GUI apps (VNC type) use a pool of 4 slots. Each slot owns:
+- A dedicated Xvfb virtual display (`:10` – `:13`)
+- A VNC server (ports `5910` – `5913`)
+- A websockify WS proxy (ports `6090` – `6093`)
+- The app process itself
+
+On connect → claim free slot → spawn all 4 processes → emit port to browser.  
+On disconnect → SIGTERM chain (ws → vnc → app → Xvfb) → slot freed.  
+Pool full → `app-error` emitted, visitor shown "try again" message.
+
+Terminal apps (PTY type) bypass the pool — they spawn a `node-pty` process directly per client, unlimited concurrency.
+
+### Why not Docker?
+
+Docker adds ~3–5 s cold-start overhead per container plus significant RAM per instance. Native processes on Xvfb start in ~1.5 s and share the host OS libraries. On a 2010 MacBook this is the difference between usable and unusable.
 
 ---
 
-### Terminal sockets and other sockets that emit GUI
+## Stack
 
-While receiving text is great, communication is a two-way street. A terminal isn't much use if you can't type into it!
+- **Runtime**: Node.js + NestJS (TypeScript)
+- **Transport**: Socket.IO WebSockets
+- **GUI streaming**: Xvfb → x11vnc → websockify → noVNC (browser-side RFB)
+- **Terminal**: node-pty → xterm.js
+- **Frontend**: Vanilla JS + WinBox.js (floating windows) + xterm.js
+- **Server**: Debian 12, headless
 
-As mentioned earlier, a raw `WebSocket` is actually more like a direct, persistent phone call between the browser and the server. `Socket.io` sits on top of this phone line and acts like a switchboard, letting us send and receive specific "events".
+---
 
-For a text-based application (like our Haskell TUI), the `NestJS` backend acts as a middleman. It "attaches" to the `Docker` container's standard input and output streams. When you type in the browser, `Socket.io` sends a terminal-input event to NestJS, which literally writes those keystrokes directly into the Docker container's brain:
+## Debugging
 
-```TypeScript
-// Listen for user keystrokes from the web and push them INTO the container
-@SubscribeMessage('terminal-input')
-handleInput(@ConnectedSocket() client: Socket, @MessageBody() data: string) {
-  const stream = client.data.stream;
-  if (stream) {
-    stream.write(data);
-  }
+### Pool status (HTTP)
+
+```bash
+curl http://localhost:3000/debug/pool
+```
+
+Returns JSON:
+```json
+{
+  "cap": 4,
+  "free": 3,
+  "slots": [
+    { "n": 0, "status": "running", "appId": "form-filler", "clientId": "abc123",
+      "display": 10, "wsPort": 6090,
+      "pids": { "xvfb": 1234, "app": 1235, "vnc": 1236, "ws": 1237 } },
+    { "n": 1, "status": "free", ... },
+    ...
+  ]
 }
 ```
 
+### Server logs
 
-#### The GUI Approach: Sockets as Matchmakers
-But what happens when the application isn't just text? What if it's a fully-fledged graphical interface, like a `JavaFX` application?
+```bash
+# Follow API logs
+journalctl -u portfolio-api -f
 
-Streaming live desktop video (VNC) through Socket.io text events would be incredibly inefficient. This requires a completely different architectural approach. Instead of acting as a middleman carrying the data, the WebSocket simply acts as a matchmaker.
+# x11vnc logs per slot
+tail -f /tmp/x11vnc-slot0.log
+tail -f /tmp/x11vnc-slot1.log
 
-1. The frontend asks `NestJS` to start the `JavaFX` app.
+# Check VNC ports are listening
+ss -tlnp | grep -E '591[0-3]'
 
-3. `NestJS` tells `Docker` to spin up the container, but instead of hooking into text streams, it maps an internal port to an external one (e.g., 8080 to 8081).
-
-4. `NestJS` waits a few seconds for the virtual monitor (`Xvfb`) to boot up.
-
-5. `NestJS` replies to the frontend: "Your container is ready. Connect your `noVNC` canvas directly to port 8081."
-
-6. From that point on, the frontend handles the heavy video streaming directly via raw `WebSockets`, leaving our backend free from the heavy lifting.
-
-```TypeScript
-
-  @SubscribeMessage('start-javafx')
-  async handleStartJavaFx(@ConnectedSocket() client: Socket) {
-    try {
-      // 1. Assign an external port (8081)
-      const hostPort = '8081'; 
-      
-      // 2. Create the container mapping internal 8080 to external 8081
-      const container = await this.dockerService.createContainer({
-        Image: 'form-filler', 
-        HostConfig: {
-          AutoRemove: true,  
-          PortBindings: {
-            '8080/tcp': [
-              { HostPort: hostPort }
-            ]
-          }
-        }
-      });
-
-      client.data.activeContainer = container; 
-
-      // 3. Power on the machine!
-      await container.start();
-      console.log(`Contenedor JavaFX iniciado en el puerto ${hostPort}`);
-
-      // 4. Give Xvfb and VNC 3 seconds to boot inside Docker 
-      // before telling the frontend it's ready to connect.
-      setTimeout(() => {
-        client.emit('javafx-started', { 
-          message: 'JavaFX Server Ready',
-          port: hostPort 
-        });
-      }, 3000);
-
-    } catch (error) {
-      console.error('Error arrancando FormFiller:', error);
-      client.emit('error', `Error al iniciar FormFiller: ${error.message}`);
-    }
-  }
+# Check websockify ports
+ss -tlnp | grep -E '609[0-3]'
 ```
 
-Both Gateways share the exact same `DockerService` to handle container cleanup (AutoRemove: true), ensuring that no matter what kind of app you open, closing the window leaves the server memory spotless and pristine.
+### Browser console
+
+The frontend has a colour-coded debug logger. Open DevTools → Console. Each event is tagged:
+
+| Tag | Colour | Covers |
+|---|---|---|
+| `[ws]` | blue | Socket.IO connect/disconnect |
+| `[app]` | green | Window open/close events |
+| `[vnc]` | orange | noVNC RFB connection lifecycle |
+| `[err]` | red | Errors from backend or RFB |
 
 ---
 
-### The `Xvfb` virtual monitor
+## Deploy
 
+### 1. Install dependencies (run once on server)
+
+```bash
+cd deploy
+bash install.sh
+```
+
+Installs: `xvfb x11vnc novnc websockify openjdk-17 maven cmake libglfw3-dev libgl1-mesa-dev g++ libomp-dev`  
+Builds: `PolygonTriangulation`, `n_queens_omp`
+
+### 2. Deploy app binaries manually
+
+| App | Path on server |
+|---|---|
+| FormFiller (Maven project) | `/opt/portfolio/form-filler/` (pom.xml + src/) |
+| Labyrinth Madness (jars) | `/opt/portfolio/labyrinth/LabyrinthApp.jar` + `core.jar` |
+| Haskell binary | `/opt/portfolio/haskell-tui` |
+| N-Queens binary | built by `install.sh` → `/opt/portfolio/n_queens_omp/n_queens_omp` |
+| Polygon binary | built by `install.sh` → `/opt/portfolio/polygon_triangulation/build/PolygonTriangulation` |
+
+### 3. Start the API
+
+```bash
+cd /opt/portfolio/api
+npm ci --omit=dev
+npm run build
+npm run start:prod
+```
 
 ---
 
-## Managing Docker images
+## Local development
 
-- Creating new image
+GUI apps (VNC) won't work on macOS — no Xvfb/x11vnc. Terminal apps (Haskell, N-Queens) work if binaries are present.
 
-```bash
-docker build --no-cache -t [IMAGE-NAME] .
-```
-
-- Running new image
+To fake a VNC port for frontend testing:
 
 ```bash
-docker run --rm -p 8080:8080 [IMAGE-NAME]
+# Terminal 1 — dummy TCP listener on slot 0 ws port
+nc -l 6090
+
+# Terminal 2 — start API
+cd api && npm run start:dev
 ```
 
-- Removing a running image
+The frontend will connect and attempt RFB negotiation (which will fail gracefully — enough to test the pool/WS flow).
 
-```sh
-// By exact name
-docker rm -f $(docker ps -q --filter ancestor=[IMAGE-NAME])
+---
 
-// By container id
-docker rm -f bc592c2343fb 
+## Repo layout
+
+```
+portfolio-proj/
+├── api/
+│   ├── src/
+│   │   ├── gateways/
+│   │   │   └── native-app.gateway.ts   # WS events for all 6 apps
+│   │   ├── sessions/
+│   │   │   ├── session-pool.service.ts # 4-slot process pool
+│   │   │   ├── session-pool.controller.ts # GET /debug/pool
+│   │   │   └── session.module.ts
+│   │   └── app.module.ts
+│   └── public/
+│       └── index.html                  # Frontend — macOS-style desktop
+├── deploy/
+│   ├── install.sh                      # One-time server setup
+│   ├── polygon-triangulation.sh        # cmake build
+│   └── n-queens-omp.sh                 # g++ -fopenmp build
+└── docs/
 ```

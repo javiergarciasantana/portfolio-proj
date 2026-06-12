@@ -229,6 +229,32 @@ const APPS = [
         readyEvent: 'labyrinth-madness-started',
         window: { width: 608, height: 740 },
     },
+    {
+        id: 'n-queens-omp', name: 'N-Queens Parallel', type: 'terminal',
+        icon: '♛', gradientStart: '#2d1b69', gradientEnd: '#11998e',
+        language: 'C++ / OpenMP',
+        description: 'Parallel N-Queens solver using OpenMP tasks — finds all solutions for N=12',
+        startEvent: 'start-n-queens-omp', stopEvent: 'stop-n-queens-omp',
+        window: { width: 700, height: 420 },
+    },
+    {
+        id: 'polygon-triangulation', name: 'Polygon Triangulation', type: 'vnc',
+        icon: '△', gradientStart: '#134e5e', gradientEnd: '#71b280',
+        language: 'C++ / GLFW / OpenGL',
+        description: 'DCEL-based polygon triangulation with real-time OpenGL rendering',
+        startEvent: 'start-polygon-triangulation', stopEvent: 'stop-polygon-triangulation',
+        readyEvent: 'polygon-triangulation-started',
+        window: { width: 800, height: 600 },
+    },
+    {
+        id: 'dalui-scrape', name: 'WP Web Snatcher', type: 'info',
+        icon: '🕸', gradientStart: '#c0392b', gradientEnd: '#8e44ad',
+        language: 'Chrome Extension (MV3) + JavaScript',
+        description: 'Universal WordPress content extractor with dynamic scraping rules and bulk mode',
+        startEvent: 'start-dalui-scrape', stopEvent: 'stop-dalui-scrape',
+        github: 'https://github.com/javiersantana/dalui-scrape',
+        window: { width: 680, height: 480 },
+    },
 ];
 
 // ── Window tracking ────────────────────────────────────────────────────────
@@ -341,12 +367,38 @@ function launchVnc(app) {
     });
 }
 
+// ── Static info card ──────────────────────────────────────────────────────
+function launchInfo(app) {
+    if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+    markRunning(app.id, true);
+    const win = new WinBox(app.name, {
+        width: `${app.window.width}px`, height: `${app.window.height}px`,
+        x: 'center', y: 'center', background: '#323234',
+        html: `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px;color:rgba(255,255,255,0.9);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;text-align:center">
+            <div style="font-size:52px">🕸</div>
+            <div style="font-size:18px;font-weight:600">${app.name}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);letter-spacing:.04em;text-transform:uppercase">${app.language}</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.65);max-width:420px;line-height:1.6">${app.description}</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+                <div style="background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 14px;font-size:12px">Manifest V3</div>
+                <div style="background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 14px;font-size:12px">Dynamic rule engine</div>
+                <div style="background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 14px;font-size:12px">Bulk export</div>
+            </div>
+            <a href="${app.github}" target="_blank" rel="noopener" style="margin-top:8px;background:#0a84ff;color:#fff;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:500;text-decoration:none">View on GitHub →</a>
+        </div>`,
+        onclose() { onWindowClose(app); return false; },
+    });
+    openWindows.set(app.id, win);
+    socket.emit(app.startEvent);
+}
+
 // ── Launch dispatcher ──────────────────────────────────────────────────────
 function launchApp(app) {
     if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
     log('app', `launch  id=${app.id}  type=${app.type}`);
     markRunning(app.id, true);
     if (app.type === 'terminal') launchTerminal(app);
+    else if (app.type === 'info') launchInfo(app);
     else launchVnc(app);
 }
 
