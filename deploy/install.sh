@@ -10,6 +10,19 @@ sudo apt install -y \
   cmake libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev \
   g++ libomp-dev
 
+echo "=== Installing Java 21 (FormFiller requires source/target 21) ==="
+if ! dpkg -l openjdk-21-jdk 2>/dev/null | grep -q '^ii'; then
+  # Try main repos first, fall back to backports
+  sudo apt install -y openjdk-21-jdk 2>/dev/null || {
+    echo "  Adding bookworm-backports for Java 21..."
+    echo "deb http://deb.debian.org/debian bookworm-backports main" \
+      | sudo tee /etc/apt/sources.list.d/backports.list
+    sudo apt update -qq
+    sudo apt install -y -t bookworm-backports openjdk-21-jdk
+  }
+fi
+echo "  Java 21: $(update-alternatives --list java | grep 21 || echo 'not found')"
+
 echo "=== Creating directory structure ==="
 sudo mkdir -p /opt/portfolio/form-filler
 sudo mkdir -p /opt/portfolio/labyrinth
