@@ -25,11 +25,6 @@ const GUI_CONFIGS: Record<string, AppConfig> = {
       cmd: 'mvn',
       args: ['javafx:run'],
       cwd: '/opt/portfolio/form-filler',
-      // pom.xml requires Java 21; server default is 17
-      env: {
-        JAVA_HOME: '/usr/lib/jvm/java-21-openjdk-amd64',
-        PATH: `/usr/lib/jvm/java-21-openjdk-amd64/bin:${process.env.PATH ?? ''}`,
-      },
     }),
   },
   'labyrinth-madness': {
