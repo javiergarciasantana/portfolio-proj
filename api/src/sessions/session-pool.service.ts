@@ -190,13 +190,22 @@ export class SessionPoolService implements OnModuleDestroy {
     args: string[],
     opts: { env?: Record<string, string>; cwd?: string } = {},
   ): ChildProcess {
+    // app role: capture stdout too — mvn/java write build output to stdout
+    const stdioMode = role === 'app' ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'pipe'];
     const proc = spawn(cmd, args, {
       ...opts,
       detached: false,
-      stdio: ['ignore', 'ignore', 'pipe'],
+      stdio: stdioMode as any,
     });
 
     this.logger.log(`spawn  role=${role}  slot=${slot.n}  cmd=${cmd}  pid=${proc.pid}`);
+
+    if (role === 'app' && proc.stdout) {
+      (proc.stdout as NodeJS.ReadableStream).on('data', (chunk: Buffer) => {
+        const line = chunk.toString().trim();
+        if (line) this.logger.debug(`[slot${slot.n}/${role}/out] ${line}`);
+      });
+    }
 
     (proc.stderr as NodeJS.ReadableStream).on('data', (chunk: Buffer) => {
       const line = chunk.toString().trim();

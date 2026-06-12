@@ -16,9 +16,16 @@ sudo mkdir -p /opt/portfolio/labyrinth
 sudo mkdir -p /opt/portfolio/polygon_triangulation
 sudo mkdir -p /opt/portfolio/n_queens_omp
 
-echo "=== Building new apps ==="
+# Symlink repo's api/ so /opt/portfolio/api always points to the live checkout
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+sudo ln -sfn "$REPO_ROOT/api" /opt/portfolio/api
+echo "  API symlink → /opt/portfolio/api → $REPO_ROOT/api"
+
+echo "=== Building / deploying apps ==="
 bash "$(dirname "$0")/polygon-triangulation.sh"
 bash "$(dirname "$0")/n-queens-omp.sh"
+bash "$(dirname "$0")/labyrinth-madness-build.sh"
+bash "$(dirname "$0")/form-filler-deploy.sh"
 
 echo ""
 echo "=== Manual steps required ==="
