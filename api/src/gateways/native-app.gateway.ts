@@ -19,8 +19,8 @@ try {
 const GUI_CONFIGS: Record<string, AppConfig> = {
   'form-filler': {
     appId: 'form-filler',
-    width: 512,
-    height: 640,
+    width: 600,   // 512 previous
+    height: 700, // 640 previous
     launchCmd: () => ({
       cmd: 'mvn',
       args: ['javafx:run'],

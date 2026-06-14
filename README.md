@@ -46,6 +46,66 @@ Pool full → `app-error` emitted, visitor shown "try again" message.
 
 Terminal apps (PTY type) bypass the pool — they spawn a `node-pty` process directly per client, unlimited concurrency.
 
+#### Diagram
+
+```mermaid
+graph TD
+    subgraph ClientLayer [Browser / Frontend]
+        UI[Web UI / WinBox]
+        Term[xterm.js Terminal]
+        NoVNC[noVNC Canvas]
+    end
+
+    subgraph BackendLayer [NestJS Backend]
+        GW[NativeAppGateway]
+        Pool[SessionPoolService]
+        PTY[node-pty wrapper]
+    end
+
+    subgraph HostLayer [Debian Host OS]
+        subgraph PoolSlot [GUI Session Slot n]
+            Xvfb[Xvfb virtual monitor]
+            App[GUI App: Java/C++]
+            VNC[x11vnc Server]
+            WS[websockify Proxy]
+        end
+        
+        TUI_App[TUI App: Haskell / C++]
+    end
+
+    %% --- Control Flow ---
+    UI -- "1. Socket.io (start-app)" --> GW
+
+    %% --- TUI Flow (Terminal Apps) ---
+    GW -- "2a. spawn(binary)" --> PTY
+    PTY -- "3a. executes" --> TUI_App
+    TUI_App -- "stdout" --> PTY
+    PTY -- "socket.emit('terminal-output')" --> Term
+    Term -- "socket.emit('terminal-input')" --> PTY
+
+    %% --- GUI Flow (Graphical Apps) ---
+    GW -- "2b. acquireSlot(appId)" --> Pool
+    Pool -- "3b. spawns processes\n(if slot free)" --> PoolSlot
+    
+    %% --- Inside the GUI Slot ---
+    App -. "renders to" .-> Xvfb
+    VNC -. "captures" .-> Xvfb
+    WS -. "tcp translation" .-> VNC
+
+    %% --- GUI Connection Flow ---
+    Pool -. "4b. returns dynamic wsPort" .-> GW
+    GW -. "5b. emits ready payload" .-> UI
+    NoVNC == "6b. Raw WebSocket Connection\n(Video & Controls)" === WS
+
+    classDef frontend fill:#2b5876,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef backend fill:#e0234e,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef os fill:#333,stroke:#fff,stroke-width:2px,color:#fff;
+    
+    class UI,Term,NoVNC frontend;
+    class GW,Pool,PTY backend;
+    class Xvfb,App,VNC,WS,TUI_App os;
+```
+
 ### Why not Docker?
 
 Docker adds ~3–5 s cold-start overhead per container plus significant RAM per instance. Native processes on Xvfb start in ~1.5 s and share the host OS libraries. On a 2010 MacBook this is the difference between usable and unusable.

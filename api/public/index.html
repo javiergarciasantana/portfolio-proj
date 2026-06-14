@@ -3,32 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio OS</title>
+    <title>Portfolio OS - OPENSTEP</title>
 
     <script src="https://cdn.jsdelivr.net/npm/winbox@0.2.82/dist/winbox.bundle.min.js"></script>
-    <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <!-- noVNC RFB client loaded as ES module, exposed on window for inline scripts -->
     <script type="module">
         import RFB from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.3.0/core/rfb.js';
         window.RFB = RFB;
     </script>
 
     <style>
+        /* ── NeXTSTEP Color Palette & Variables ─────────────────────────────── */
         :root {
-            --bar-h: 28px;
-            --dock-h: 72px;
-            --glass-dark: rgba(20, 20, 22, 0.88);
-            --glass-mid: rgba(255,255,255,0.10);
-            --glass-border: rgba(255,255,255,0.10);
-            --text: rgba(255,255,255,0.90);
-            --text-dim: rgba(255,255,255,0.50);
-            --accent: #0a84ff;
-            --win-titlebar: #323234;
-            --win-body: #1c1c1e;
-            --red: #FF5F57; --yellow: #FEBC2E; --green: #28C840;
+            --nx-bg: #2b2b2b; /* Dark moody workspace background */
+            --nx-gray: #aaaaaa;
+            --nx-dark-gray: #555555;
+            --nx-light: #ffffff;
+            --nx-black: #000000;
+            --nx-accent: #000080; /* Classic deep blue */
+            --win-body: #bfbfbf;
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,142 +32,184 @@
         body {
             overflow: hidden;
             width: 100vw; height: 100vh;
-            background: url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=2560&auto=format&fit=crop')
-                        no-repeat center center fixed;
-            background-size: cover;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-            -webkit-font-smoothing: antialiased;
+            background: var(--nx-bg);
+            /* Classic 90s UNIX bitmap stipple effect */
+            background-image: radial-gradient(#444 15%, transparent 16%), radial-gradient(#444 15%, transparent 16%);
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px;
+            font-family: Helvetica, Arial, sans-serif; /* NeXT heavily relied on Helvetica */
+            -webkit-font-smoothing: none; /* Crisper, retro font rendering */
         }
 
-        /* ── Menu Bar ───────────────────────────────────────────────────────── */
+        /* ── Menu Bar (Classic Motif / OPENSTEP Style) ──────────────────────── */
         #menubar {
-            position: fixed; top: 0; left: 0; right: 0;
-            height: var(--bar-h);
-            background: var(--glass-dark);
-            backdrop-filter: blur(40px) saturate(200%);
-            border-bottom: 0.5px solid var(--glass-border);
+            position: fixed; top: 0; left: 0; right: 74px; /* Stop before dock */
+            height: 28px;
+            background: var(--nx-gray);
+            border-bottom: 2px solid var(--nx-dark-gray);
+            border-top: 2px solid var(--nx-light);
             display: flex; align-items: center; justify-content: space-between;
             padding: 0 14px; z-index: 100000; user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
-        .bar-left, .bar-right { display: flex; align-items: center; gap: 2px; }
-        .bar-logo { font-size: 15px; color: var(--text); padding: 0 8px 0 2px; }
+        .bar-left, .bar-right { display: flex; align-items: center; gap: 4px; }
+        .bar-logo { font-size: 16px; font-weight: bold; color: var(--nx-black); padding-right: 8px; }
         .bar-item {
-            color: var(--text); font-size: 13px; font-weight: 400;
-            padding: 2px 9px; border-radius: 5px; cursor: default;
-            letter-spacing: -0.01em; transition: background 0.12s; white-space: nowrap;
+            color: var(--nx-black); font-size: 13px; font-weight: bold;
+            padding: 2px 8px; cursor: default;
+            border: 1px solid transparent;
         }
-        .bar-item:hover { background: rgba(255,255,255,0.12); }
-        .bar-item.strong { font-weight: 600; }
-        .bar-right { gap: 14px; }
-        #clock { color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; }
+        .bar-item:hover { 
+            border-top: 1px solid var(--nx-light);
+            border-left: 1px solid var(--nx-light);
+            border-bottom: 1px solid var(--nx-dark-gray);
+            border-right: 1px solid var(--nx-dark-gray);
+        }
+        #clock { color: var(--nx-black); font-size: 13px; font-weight: bold; }
 
         /* ── Desktop ────────────────────────────────────────────────────────── */
-        #desktop { position: fixed; top: var(--bar-h); left: 0; right: 0; bottom: 0; z-index: 1; }
+        #desktop { position: fixed; top: 28px; left: 0; right: 74px; bottom: 0; z-index: 1; }
 
-        /* ── Dock ───────────────────────────────────────────────────────────── */
+        /* ── Dock (Right aligned, vertical) ─────────────────────────────────── */
         #dock {
-            position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-            background: rgba(255,255,255,0.11);
-            backdrop-filter: blur(30px) saturate(180%);
-            border: 0.5px solid rgba(255,255,255,0.20);
-            border-bottom-color: rgba(255,255,255,0.08);
-            padding: 8px 14px 6px; border-radius: 20px;
-            display: flex; align-items: flex-end; gap: 6px;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3),
-                        inset 0 1px 0 rgba(255,255,255,0.18);
+            position: fixed; top: 0; right: 0; bottom: 0; width: 74px;
+            background: var(--nx-gray);
+            border-left: 2px solid var(--nx-light);
+            box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; align-items: center; 
+            padding: 10px 0; gap: 12px;
             z-index: 99998;
         }
 
         /* ── App Icon ───────────────────────────────────────────────────────── */
         .app-icon {
             position: relative; display: flex; flex-direction: column;
-            align-items: center; cursor: pointer; padding-bottom: 2px;
+            align-items: center; cursor: pointer;
         }
         .app-icon-shell {
-            width: 54px; height: 54px; border-radius: 13px;
-            display: flex; align-items: center; justify-content: center; font-size: 26px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.35),
-                        inset 0 1px 0 rgba(255,255,255,0.22),
-                        inset 0 -1px 0 rgba(0,0,0,0.15);
-            transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
-            transform-origin: bottom center; position: relative; overflow: hidden;
+            width: 52px; height: 52px;
+            background: var(--nx-gray);
+            display: flex; align-items: center; justify-content: center;
+            /* Heavy 3D Outset Bevel */
+            border-top: 3px solid var(--nx-light);
+            border-left: 3px solid var(--nx-light);
+            border-bottom: 3px solid var(--nx-dark-gray);
+            border-right: 3px solid var(--nx-dark-gray);
+            box-shadow: 2px 2px 0 var(--nx-black);
+            transition: all 0.05s;
         }
-        .app-icon-shell::after {
-            content: ''; position: absolute; inset: 0;
-            background: linear-gradient(170deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 55%);
-            border-radius: inherit; pointer-events: none;
+        .app-icon-shell:active {
+            /* Inset Bevel on click */
+            border-top: 3px solid var(--nx-dark-gray);
+            border-left: 3px solid var(--nx-dark-gray);
+            border-bottom: 3px solid var(--nx-light);
+            border-right: 3px solid var(--nx-light);
+            box-shadow: none;
+            transform: translate(2px, 2px);
         }
-        .app-icon:hover .app-icon-shell { transform: translateY(-14px) scale(1.22); }
+        .app-icon-shell svg {
+            width: 36px; height: 36px;
+            image-rendering: pixelated;
+        }
         .app-tooltip {
-            position: absolute; bottom: calc(100% + 18px); left: 50%;
-            transform: translateX(-50%) translateY(4px);
-            background: rgba(20,20,22,0.92); backdrop-filter: blur(12px);
-            color: var(--text); font-size: 11.5px; font-weight: 500;
-            white-space: nowrap; padding: 4px 10px; border-radius: 7px;
-            border: 0.5px solid var(--glass-border);
-            opacity: 0; transition: opacity 0.12s, transform 0.12s; pointer-events: none;
+            position: absolute; right: calc(100% + 10px); top: 50%;
+            transform: translateY(-50%);
+            background: var(--nx-black); color: var(--nx-light);
+            font-size: 12px; font-weight: bold;
+            white-space: nowrap; padding: 4px 8px; 
+            border: 1px solid var(--nx-light);
+            opacity: 0; pointer-events: none;
         }
-        .app-icon:hover .app-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .app-icon:hover .app-tooltip { opacity: 1; }
         .app-dot {
-            width: 4px; height: 4px; border-radius: 50%;
-            background: rgba(255,255,255,0.65); margin-top: 3px; transition: opacity 0.2s;
+            position: absolute; bottom: -4px; right: -4px;
+            width: 12px; height: 12px; background: var(--nx-light);
+            border: 2px solid var(--nx-black);
+            opacity: 1;
         }
-        .app-dot.hidden { opacity: 0; }
+        .app-dot.hidden { display: none; }
 
-        /* ── WinBox macOS overrides ──────────────────────────────────────────── */
+        /* ── WinBox NeXTSTEP overrides ──────────────────────────────────────── */
         .winbox {
-            border-radius: 12px !important;
-            box-shadow: 0 0 0 0.5px rgba(255,255,255,0.07),
-                        0 22px 70px rgba(0,0,0,0.75), 0 4px 16px rgba(0,0,0,0.4) !important;
-            overflow: hidden !important;
+            border-radius: 0 !important;
+            background: var(--nx-gray) !important;
+            /* Outer Window Bevel */
+            border-top: 2px solid var(--nx-light) !important;
+            border-left: 2px solid var(--nx-light) !important;
+            border-bottom: 2px solid var(--nx-black) !important;
+            border-right: 2px solid var(--nx-black) !important;
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.6) !important;
         }
-        .winbox .wb-drag { background: var(--win-titlebar) !important; border-bottom: 0.5px solid rgba(255,255,255,0.07) !important; }
-        .winbox .wb-title { color: rgba(255,255,255,0.80) !important; font-size: 13px !important; font-weight: 500 !important; }
+        .winbox .wb-drag { 
+            background: var(--nx-black) !important; 
+            height: 24px !important;
+        }
+        .winbox .wb-title { 
+            color: var(--nx-light) !important; 
+            font-size: 13px !important; font-weight: bold !important; 
+            text-align: center !important; font-family: Helvetica, sans-serif !important;
+        }
         .winbox .wb-control {
-            position: absolute !important; left: 10px !important; right: auto !important;
-            top: 50% !important; transform: translateY(-50%) !important;
-            display: flex !important; flex-direction: row-reverse !important; gap: 7px !important;
+            position: absolute !important; right: 4px !important; top: 4px !important;
+            display: flex !important; gap: 4px !important;
         }
-        .winbox .wb-min, .winbox .wb-max, .winbox .wb-close, .winbox .wb-full {
-            width: 12px !important; height: 12px !important; border-radius: 50% !important;
-            background-image: none !important; position: static !important;
+        /* Square retro buttons */
+        .winbox .wb-min, .winbox .wb-max, .winbox .wb-close {
+            width: 16px !important; height: 16px !important; border-radius: 0 !important;
+            background: var(--nx-gray) !important;
+            border-top: 2px solid var(--nx-light) !important;
+            border-left: 2px solid var(--nx-light) !important;
+            border-bottom: 2px solid var(--nx-dark-gray) !important;
+            border-right: 2px solid var(--nx-dark-gray) !important;
+            background-image: none !important;
+            position: relative;
+        }
+        .winbox .wb-close::after {
+            content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
+            background: var(--nx-black);
+        }
+        .winbox .wb-min::after {
+            content: ''; position: absolute; top: 50%; left: 3px; right: 3px; height: 2px;
+            background: var(--nx-black);
+        }
+        .winbox .wb-max::after {
+            content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
+            border: 2px solid var(--nx-black);
         }
         .winbox .wb-full { display: none !important; }
-        .winbox .wb-close  { background-color: var(--red)    !important; }
-        .winbox .wb-min    { background-color: var(--yellow)  !important; }
-        .winbox .wb-max    { background-color: var(--green)   !important; }
-        .winbox:not(.focus) .wb-close,
-        .winbox:not(.focus) .wb-min,
-        .winbox:not(.focus) .wb-max { background-color: rgba(100,100,100,0.6) !important; }
-        .winbox .wb-body { background: var(--win-body) !important; }
+        .winbox .wb-body { 
+            background: var(--win-body) !important; 
+            border: 2px solid var(--nx-dark-gray) !important;
+            border-bottom: none !important; border-right: none !important;
+            margin: 2px !important;
+        }
 
         /* ── Loading / Error states ──────────────────────────────────────────── */
         .center-state {
             height: 100%; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 14px; color: var(--text-dim);
+            align-items: center; justify-content: center; gap: 14px; color: var(--nx-black);
         }
         .spinner {
-            width: 28px; height: 28px;
-            border: 2px solid rgba(255,255,255,0.08); border-top-color: var(--accent);
-            border-radius: 50%; animation: spin 0.75s linear infinite;
+            width: 24px; height: 24px;
+            border: 3px solid var(--nx-dark-gray); border-top-color: var(--nx-black);
+            animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .center-state span { font-size: 12.5px; font-weight: 400; }
-        .error-icon { font-size: 28px; }
+        .center-state span { font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="menubar">
     <div class="bar-left">
-        <span class="bar-logo">⌘</span>
-        <span class="bar-item strong">Portfolio OS</span>
-        <span class="bar-item">Finder</span>
-        <span class="bar-item">Projects</span>
-        <span class="bar-item">About</span>
+        <span class="bar-logo">NeXT</span>
+        <span class="bar-item">Workspace</span>
+        <span class="bar-item">Apps</span>
+        <span class="bar-item">File</span>
     </div>
     <div class="bar-right">
         <div id="clock"></div>
+        
     </div>
 </div>
 
@@ -181,19 +219,11 @@
 <script>
 const socket = io();
 
-// ── Debug logger ───────────────────────────────────────────────────────────
 const log = (() => {
-    const c = { ws:'#4fc3f7', app:'#a5d6a7', vnc:'#ffb74d', err:'#ef9a9a', info:'#e0e0e0' };
     return (tag, ...args) => {
-        const color = c[tag] || c.info;
-        console.log(`%c[${tag}] ${new Date().toISOString()}`, `color:${color};font-weight:bold`, ...args);
+        console.log(`[${tag}]`, ...args);
     };
 })();
-
-socket.on('connect',       () => log('ws', `connected  id=${socket.id}`));
-socket.on('disconnect',    reason => log('ws', `disconnected  reason=${reason}`));
-socket.on('connect_error', err => log('err', `connect_error  ${err.message}`));
-socket.on('app-error',     ({ app, message }) => log('err', `app-error  app=${app}  ${message}`));
 
 // ── Clock ──────────────────────────────────────────────────────────────────
 function tick() {
@@ -204,60 +234,58 @@ function tick() {
 }
 tick(); setInterval(tick, 1000);
 
-// ── App registry ───────────────────────────────────────────────────────────
+// ── App registry (WITH INLINE 16-BIT SVG ICONS) ────────────────────────────
 const APPS = [
     {
-        id: 'haskell-tui', name: 'Haskell Functions', type: 'terminal',
-        icon: 'λ', gradientStart: '#1a1a2e', gradientEnd: '#4e4376',
-        language: 'Haskell', description: 'Purely functional demos: sorting, trees, combinatorics',
+        id: 'haskell-tui', name: 'Haskell Terminal', type: 'terminal',
+        // 16-bit terminal icon SVG
+        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><rect x="2" y="2" width="28" height="28" fill="#111" stroke="#555" stroke-width="2"/><text x="16" y="22" fill="#0f0" font-family="monospace" font-weight="bold" font-size="20" text-anchor="middle">λ_</text></svg>`,
+        language: 'Haskell', description: 'Purely functional demos',
         startEvent: 'start-haskell', stopEvent: 'stop-haskell',
         window: { width: 800, height: 500 },
     },
     {
         id: 'form-filler', name: 'FormFiller', type: 'vnc',
-        icon: '📋', gradientStart: '#0f4c75', gradientEnd: '#1b262c',
-        language: 'Java / JavaFX', description: 'Automated form processing and data entry',
-        startEvent: 'start-form-filler', stopEvent: 'stop-form-filler',
-        readyEvent: 'form-filler-started',
-        window: { width: 512, height: 640 },
+        // 16-bit Clipboard SVG
+        iconSvg: `<svg viewBox="0 0 32 32"><rect x="6" y="8" width="20" height="22" fill="#fff" stroke="#000" stroke-width="2"/><rect x="10" y="4" width="12" height="6" fill="#aaa" stroke="#000" stroke-width="2"/><line x1="10" y1="16" x2="22" y2="16" stroke="#000" stroke-width="2"/><line x1="10" y1="20" x2="22" y2="20" stroke="#000" stroke-width="2"/><line x1="10" y1="24" x2="18" y2="24" stroke="#000" stroke-width="2"/></svg>`,
+        language: 'Java / JavaFX', description: 'Automated form processing',
+        startEvent: 'start-form-filler', stopEvent: 'stop-form-filler', readyEvent: 'form-filler-started',
+        window: { width: 600, height: 700 },
     },
     {
-        id: 'labyrinth-madness', name: 'Labyrinth Madness', type: 'vnc',
-        icon: '🌀', gradientStart: '#0f0c29', gradientEnd: '#302b63',
-        language: 'Java / Processing', description: 'Real-time maze generation and pathfinding',
-        startEvent: 'start-labyrinth-madness', stopEvent: 'stop-labyrinth-madness',
-        readyEvent: 'labyrinth-madness-started',
+        id: 'labyrinth-madness', name: 'Labyrinth', type: 'vnc',
+        // 16-bit Maze block SVG
+        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><path d="M4,4 L28,4 L28,28 L4,28 Z M8,8 L24,8 L24,12 L12,12 L12,24 L8,24 Z M16,16 L24,16 L24,24 L16,24 Z" fill="#00f" stroke="#0ff" stroke-width="1"/></svg>`,
+        language: 'Java / Processing', description: 'Maze generation',
+        startEvent: 'start-labyrinth-madness', stopEvent: 'stop-labyrinth-madness', readyEvent: 'labyrinth-madness-started',
         window: { width: 608, height: 740 },
     },
     {
-        id: 'n-queens-omp', name: 'N-Queens Parallel', type: 'terminal',
-        icon: '♛', gradientStart: '#2d1b69', gradientEnd: '#11998e',
-        language: 'C++ / OpenMP',
-        description: 'Parallel N-Queens solver using OpenMP tasks — finds all solutions for N=12',
+        id: 'n-queens-omp', name: 'N-Queens', type: 'terminal',
+        // 16-bit Chess Crown SVG
+        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#fff" stroke="#000" stroke-width="2"/><path d="M6,24 L26,24 L24,10 L20,16 L16,8 L12,16 L8,10 Z" fill="#000"/></svg>`,
+        language: 'C++ / OpenMP', description: 'Parallel solver',
         startEvent: 'start-n-queens-omp', stopEvent: 'stop-n-queens-omp',
         window: { width: 700, height: 420 },
     },
     {
-        id: 'polygon-triangulation', name: 'Polygon Triangulation', type: 'vnc',
-        icon: '△', gradientStart: '#134e5e', gradientEnd: '#71b280',
-        language: 'C++ / GLFW / OpenGL',
-        description: 'DCEL-based polygon triangulation with real-time OpenGL rendering',
-        startEvent: 'start-polygon-triangulation', stopEvent: 'stop-polygon-triangulation',
-        readyEvent: 'polygon-triangulation-started',
+        id: 'polygon-triangulation', name: 'Triangulation', type: 'vnc',
+        // 16-bit Triangle wireframe SVG
+        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#444"/><polygon points="16,4 28,26 4,26" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="4" x2="16" y2="26" stroke="#f00" stroke-width="2"/><line x1="16" y1="16" x2="4" y2="26" stroke="#0f0" stroke-width="2"/><line x1="16" y1="16" x2="28" y2="26" stroke="#00f" stroke-width="2"/></svg>`,
+        language: 'C++ / OpenGL', description: 'Polygon triangulation',
+        startEvent: 'start-polygon-triangulation', stopEvent: 'stop-polygon-triangulation', readyEvent: 'polygon-triangulation-started',
         window: { width: 800, height: 600 },
     },
     {
-        id: 'dalui-scrape', name: 'WP Web Snatcher', type: 'info',
-        icon: '🕸', gradientStart: '#c0392b', gradientEnd: '#8e44ad',
-        language: 'Chrome Extension (MV3) + JavaScript',
-        description: 'Universal WordPress content extractor with dynamic scraping rules and bulk mode',
-        startEvent: 'start-dalui-scrape', stopEvent: 'stop-dalui-scrape',
-        github: 'https://github.com/javiersantana/dalui-scrape',
+        id: 'dalui-scrape', name: 'Web Snatcher', type: 'info',
+        // 16-bit Spiderweb SVG
+        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#500"/><circle cx="16" cy="16" r="12" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="2,2"/><circle cx="16" cy="16" r="6" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="0" x2="16" y2="32" stroke="#fff" stroke-width="2"/><line x1="0" y1="16" x2="32" y2="16" stroke="#fff" stroke-width="2"/><line x1="4" y1="4" x2="28" y2="28" stroke="#fff" stroke-width="2"/><line x1="4" y1="28" x2="28" y2="4" stroke="#fff" stroke-width="2"/></svg>`,
+        language: 'Chrome Extension', description: 'Content extractor',
+        startEvent: 'start-dalui-scrape', stopEvent: 'stop-dalui-scrape', github: 'https://github.com/javiersantana/dalui-scrape',
         window: { width: 680, height: 480 },
     },
 ];
 
-// ── Window tracking ────────────────────────────────────────────────────────
 const openWindows = new Map();
 
 function markRunning(id, running) {
@@ -266,19 +294,18 @@ function markRunning(id, running) {
 }
 
 function onWindowClose(app) {
-    log('app', `close  id=${app.id}  emitting '${app.stopEvent}'`);
     socket.emit(app.stopEvent);
     openWindows.delete(app.id);
     markRunning(app.id, false);
 }
 
-// ── Terminal app (Haskell PTY) ─────────────────────────────────────────────
+// ── Terminal app ───────────────────────────────────────────────────────────
 function launchTerminal(app) {
     const bodyId = `term-${app.id}`;
     const win = new WinBox(app.name, {
         width: `${app.window.width}px`, height: `${app.window.height}px`,
-        x: 'center', y: 'center', background: '#323234',
-        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;"></div>`,
+        x: 'center', y: 'center',
+        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;padding:4px"></div>`,
         onclose() { onWindowClose(app); term?.dispose(); return false; },
     });
     openWindows.set(app.id, win);
@@ -288,11 +315,9 @@ function launchTerminal(app) {
         const el = document.getElementById(bodyId);
         if (!el) return;
         term = new Terminal({
-            theme: { background:'#000', foreground:'#f8f8f2', cursor:'#f8f8f2',
-                     black:'#21222c', red:'#ff5555', green:'#50fa7b', yellow:'#f1fa8c',
-                     blue:'#bd93f9', magenta:'#ff79c6', cyan:'#8be9fd', white:'#f8f8f2' },
-            fontFamily: '"SF Mono","Cascadia Code","Fira Code",monospace',
-            fontSize: 13, lineHeight: 1.45, cursorBlink: true, cursorStyle: 'bar',
+            theme: { background:'#000', foreground:'#ccc', cursor:'#0f0' }, // Classic UNIX colors
+            fontFamily: 'monospace',
+            fontSize: 14, cursorBlink: true, cursorStyle: 'block',
         });
         const fit = new FitAddon.FitAddon();
         term.loadAddon(fit);
@@ -302,66 +327,50 @@ function launchTerminal(app) {
         term.onData(data => socket.emit('terminal-input', data));
         term.onResize(({ cols, rows }) => socket.emit('terminal-resize', { cols, rows }));
         socket.on('terminal-output', data => term.write(data));
-        log('app', `launchTerminal: emitting '${app.startEvent}'`);
         socket.emit(app.startEvent);
     }, 60);
 }
 
-// ── VNC app (always-on noVNC) ─────────────────────────────────────────────
+// ── VNC app ───────────────────────────────────────────────────────────────
 function launchVnc(app) {
     const bodyId = `vnc-${app.id}`;
     const win = new WinBox(app.name, {
         width: `${app.window.width}px`, height: `${app.window.height}px`,
-        x: 'center', y: 'center', background: '#323234',
-        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;">
+        x: 'center', y: 'center',
+        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#bfbfbf;">
                  <div class="center-state">
                    <div class="spinner"></div>
-                   <span>Connecting to ${app.name}…</span>
-                   <span style="font-size:11px;opacity:.6">${app.language}</span>
+                   <span>Connecting via RFB...</span>
                  </div>
                </div>`,
         onclose() { onWindowClose(app); return false; },
     });
     openWindows.set(app.id, win);
-
-    log('vnc', `emitting '${app.startEvent}'  id=${app.id}`);
     socket.emit(app.startEvent);
 
-    // Backend does a TCP health-check on the fixed VNC port then replies
     socket.once(app.readyEvent, ({ port }) => {
-        log('vnc', `readyEvent port=${port}  id=${app.id}`);
         const el = document.getElementById(bodyId);
         if (!el) return;
-
-        // Clear the loading spinner — noVNC will fill the container
         el.innerHTML = '';
-
         const host = window.location.hostname;
         const wsUrl = `ws://${host}:${port}/websockify`;
-        log('vnc', `connecting RFB  url=${wsUrl}`);
-
-        // Wait for RFB to be loaded from the ES module (tiny race on slow connections)
+        
         const connect = () => {
             if (!window.RFB) { setTimeout(connect, 50); return; }
             const rfb = new window.RFB(el, wsUrl, { credentials: { password: '' } });
-            rfb.scaleViewport = true;
-            rfb.showDotCursor = true;
-            rfb.addEventListener('connect',    ()  => log('vnc', `RFB connected  port=${port}`));
-            rfb.addEventListener('disconnect', (e) => log('vnc', `RFB disconnected  reason=${e.detail.reason}`));
+            rfb.scaleViewport = true; rfb.showDotCursor = true;
         };
         connect();
     });
 
-    // Handle service-down errors from gateway
     socket.once('app-error', ({ app: errApp, message }) => {
         if (errApp !== app.id) return;
-        log('err', `app-error  ${message}`);
         const el = document.getElementById(bodyId);
         if (el) el.innerHTML = `
             <div class="center-state">
-              <span class="error-icon">⚠️</span>
-              <span>${app.name} is offline</span>
-              <span style="font-size:11px;opacity:.5;text-align:center;padding:0 16px">${message}</span>
+              <span style="font-size:32px;color:red;font-weight:bold">X</span>
+              <span>Process Failed</span>
+              <span style="font-weight:normal">${message}</span>
             </div>`;
         markRunning(app.id, false);
     });
@@ -373,18 +382,13 @@ function launchInfo(app) {
     markRunning(app.id, true);
     const win = new WinBox(app.name, {
         width: `${app.window.width}px`, height: `${app.window.height}px`,
-        x: 'center', y: 'center', background: '#323234',
-        html: `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px;color:rgba(255,255,255,0.9);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;text-align:center">
-            <div style="font-size:52px">🕸</div>
-            <div style="font-size:18px;font-weight:600">${app.name}</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.45);letter-spacing:.04em;text-transform:uppercase">${app.language}</div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.65);max-width:420px;line-height:1.6">${app.description}</div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px">
-                <div style="background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 14px;font-size:12px">Manifest V3</div>
-                <div style="background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 14px;font-size:12px">Dynamic rule engine</div>
-                <div style="background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 14px;font-size:12px">Bulk export</div>
-            </div>
-            <a href="${app.github}" target="_blank" rel="noopener" style="margin-top:8px;background:#0a84ff;color:#fff;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:500;text-decoration:none">View on GitHub →</a>
+        x: 'center', y: 'center',
+        html: `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px;color:#000;text-align:center">
+            <div style="width:64px;height:64px;border:2px solid #000;background:#fff;padding:8px">${app.iconSvg}</div>
+            <div style="font-size:20px;font-weight:bold">${app.name}</div>
+            <div style="font-size:12px;font-weight:bold;text-transform:uppercase;border-bottom:1px solid #000">${app.language}</div>
+            <div style="font-size:14px;max-width:420px;line-height:1.4">${app.description}</div>
+            <a href="${app.github}" target="_blank" rel="noopener" style="margin-top:16px;background:#aaaaaa;color:#000;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:2px solid #555;border-right:2px solid #555;padding:6px 16px;font-size:13px;font-weight:bold;text-decoration:none">Inspect on GitHub</a>
         </div>`,
         onclose() { onWindowClose(app); return false; },
     });
@@ -395,7 +399,6 @@ function launchInfo(app) {
 // ── Launch dispatcher ──────────────────────────────────────────────────────
 function launchApp(app) {
     if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
-    log('app', `launch  id=${app.id}  type=${app.type}`);
     markRunning(app.id, true);
     if (app.type === 'terminal') launchTerminal(app);
     else if (app.type === 'info') launchInfo(app);
@@ -410,9 +413,8 @@ APPS.forEach(app => {
     el.dataset.id = app.id;
     el.innerHTML = `
         <div class="app-tooltip">${app.name}</div>
-        <div class="app-icon-shell"
-             style="background:linear-gradient(145deg,${app.gradientStart},${app.gradientEnd})">
-            <span>${app.icon}</span>
+        <div class="app-icon-shell">
+            ${app.iconSvg}
         </div>
         <div class="app-dot hidden"></div>`;
     el.addEventListener('click', () => launchApp(app));
