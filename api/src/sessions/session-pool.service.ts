@@ -146,9 +146,19 @@ export class SessionPoolService implements OnModuleDestroy {
     const dispStr = `:${display}`;
     this.logger.log(`startSlot  n=${n}  display=${dispStr}  vnc=${vncPort}  ws=${wsPort}  app=${cfg.appId}`);
 
+    // --- AGGRESSIVE ZOMBIE CLEANUP ---
     try {
+      // 1. Hunt down and kill any orphaned processes holding this exact display slot
+      // We use `|| true` so execSync doesn't throw an error if no process is found
+      execSync(`pkill -9 -f "Xvfb :${display}" || true`);
+      execSync(`pkill -9 -f "x11vnc -display :${display}" || true`);
+      
+      // 2. Nuke the stale lock files and UNIX sockets
       execSync(`rm -f /tmp/.X${display}-lock /tmp/.X11-unix/X${display}`);
-    } catch {}
+    } catch (err) {
+      this.logger.warn(`Cleanup for display ${display} encountered a minor issue, proceeding anyway.`);
+    }
+    // ---------------------------------
 
     // Xvfb
     slot.procs.xvfb = this.spawnLogged('xvfb', slot, 'Xvfb', [

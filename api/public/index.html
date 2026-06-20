@@ -52,7 +52,7 @@
             padding: 0 14px; z-index: 100000; user-select: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
-        .bar-left, .bar-right { display: flex; align-items: center; gap: 4px; }
+        .bar-left, .bar-right { display: flex; align-items: center; gap: 14px; }
         .bar-logo { font-size: 16px; font-weight: bold; color: var(--nx-black); padding-right: 8px; }
         .bar-item {
             color: var(--nx-black); font-size: 13px; font-weight: bold;
@@ -201,15 +201,44 @@
 <body>
 
 <div id="menubar">
-    <div class="bar-left">
-        <span class="bar-logo">NeXT</span>
-        <span class="bar-item">Workspace</span>
-        <span class="bar-item">Apps</span>
-        <span class="bar-item">File</span>
+    
+    <div class="bar-left" style="display: flex; gap: 15px; align-items: center;">
+        <span class="bar-logo" style="font-weight: bold; color: white;">My Portfolio OS</span>
+        <span class="bar-item" style="color: #cdd6f4;">Javier</span>
+        <span class="bar-item" style="color: #cdd6f4;">García</span>
+        <span class="bar-item" style="color: #cdd6f4;">Santana</span>
     </div>
+    
     <div class="bar-right">
+
+        <div id="mac-cpu-widget" style="color: var(--nx-black); font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                <rect x="9" y="9" width="6" height="6"></rect>
+                <line x1="9" y1="1" x2="9" y2="4"></line>
+                <line x1="15" y1="1" x2="15" y2="4"></line>
+                <line x1="9" y1="20" x2="9" y2="23"></line>
+                <line x1="15" y1="20" x2="15" y2="23"></line>
+                <line x1="20" y1="9" x2="23" y2="9"></line>
+                <line x1="20" y1="14" x2="23" y2="14"></line>
+                <line x1="1" y1="9" x2="4" y2="9"></line>
+                <line x1="1" y1="14" x2="4" y2="14"></line>
+            </svg>
+            <span><span id="cpu-core-0">--</span>% | <span id="cpu-core-1">--</span>%</span>
+        </div>
+
+        <div id="mac-fan-widget" style="color: #cdd6f4; font-family: 'SF Pro', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 12c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z"></path>
+                <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5z"></path>
+                <path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" transform="rotate(45 12 12)"></path>
+                <path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z" transform="rotate(45 12 12)"></path>
+            </svg>
+            <span id="fan-rpm">--</span> RPM
+        </div>
+
         <div id="clock"></div>
-        
+
     </div>
 </div>
 
@@ -261,12 +290,12 @@ const APPS = [
         window: { width: 608, height: 740 },
     },
     {
-        id: 'n-queens-omp', name: 'N-Queens', type: 'terminal',
+        id: 'n-queens-omp', name: 'N-Queens', type: 'vnc',
         // 16-bit Chess Crown SVG
         iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#fff" stroke="#000" stroke-width="2"/><path d="M6,24 L26,24 L24,10 L20,16 L16,8 L12,16 L8,10 Z" fill="#000"/></svg>`,
         language: 'C++ / OpenMP', description: 'Parallel solver',
-        startEvent: 'start-n-queens-omp', stopEvent: 'stop-n-queens-omp',
-        window: { width: 700, height: 420 },
+        startEvent: 'start-n-queens-omp', stopEvent: 'stop-n-queens-omp',readyEvent: 'n-queens-omp-started',
+        window: { width: 1000, height: 600 },
     },
     {
         id: 'polygon-triangulation', name: 'Triangulation', type: 'vnc',
@@ -420,6 +449,68 @@ APPS.forEach(app => {
     el.addEventListener('click', () => launchApp(app));
     dock.appendChild(el);
 });
+</script>
+<script>
+    // Fetches real hardware data from NestJS backend(fanspeed)
+    async function updateFanSpeed() {
+        try {
+            // Adjust the URL if your NestJS API is hosted on a different path or port
+            const response = await fetch('/api/hardware/fan-speed');
+            const data = await response.json();
+
+            const fanElement = document.getElementById('fan-rpm');
+            
+            if (data.status === 'success') {
+                fanElement.innerText = data.rpm;
+                fanElement.style.color = '#cdd6f4'; // Normal color
+            } else if (data.status === 'virtualized') {
+                fanElement.innerText = 'V-SYS'; // Cloud VPS indicator
+                fanElement.style.color = '#f38ba8'; // Red warning color
+            }
+        } catch (error) {
+            console.error("Could not connect to hardware API", error);
+        }
+    }
+
+    // Run immediately, then every 3 seconds
+    updateFanSpeed();
+    setInterval(updateFanSpeed, 3000); 
+</script>
+<script>
+    async function updateHardwareStats() {
+        try {
+            // Fetch Fan Speed
+            const fanResponse = fetch('/api/hardware/fan-speed').then(res => res.json());
+            // Fetch CPU Usage
+            const cpuResponse = fetch('/api/hardware/cpu-load').then(res => res.json());
+
+            // Wait for both APIs to return
+            const [fanData, cpuData] = await Promise.all([fanResponse, cpuResponse]);
+
+            // Update Fan UI
+            const fanElement = document.getElementById('fan-rpm');
+            if (fanData.status === 'success') {
+                fanElement.innerText = fanData.rpm;
+                fanElement.style.color = 'var(--nx-black)'; 
+            } else if (fanData.status === 'virtualized') {
+                fanElement.innerText = 'V-SYS'; 
+                fanElement.style.color = '#aa0000'; 
+            }
+
+            // Update CPU UI
+            if (cpuData.status === 'success' && cpuData.cores.length >= 2) {
+                document.getElementById('cpu-core-0').innerText = cpuData.cores[0];
+                document.getElementById('cpu-core-1').innerText = cpuData.cores[1];
+            }
+
+        } catch (error) {
+            console.error("Could not connect to hardware APIs", error);
+        }
+    }
+
+    // Run immediately, then every 3 seconds
+    updateHardwareStats();
+    setInterval(updateHardwareStats, 3000); 
 </script>
 </body>
 </html>

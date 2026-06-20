@@ -4,12 +4,15 @@ set -e
 SRC=/home/jsantana/n_queens_omp
 DEST=/opt/portfolio/n_queens_omp
 
-echo "=== Building n_queens_omp ==="
+echo "=== Building n_queens ==="
 sudo mkdir -p "$DEST"
-sudo cp "$SRC/n_queens_omp.cc" "$DEST/"
+sudo cp -r "$SRC/src" "$DEST/"
+sudo cp "$SRC/CMakeLists.txt" "$DEST/"
 
 cd "$DEST"
-sudo g++ -O2 -fopenmp -o n_queens_omp n_queens_omp.cc
+sudo cmake -B build -DCMAKE_BUILD_TYPE=Release
+sudo cmake --build build
 
-echo "=== n_queens_omp ready ==="
-echo "  Binary: $DEST/n_queens_omp"
+
+echo "=== n_queens ready ==="
+echo "  Binary: $DEST/build/NQueensVisualizer"

@@ -50,6 +50,16 @@ const GUI_CONFIGS: Record<string, AppConfig> = {
       env: { LIBGL_ALWAYS_SOFTWARE: '1' },
     }),
   },
+  'n-queens-omp': {
+    appId: 'n-queens-omp',
+    width: 1000,
+    height: 600,
+    launchCmd: () => ({
+      cmd: '/opt/portfolio/n_queens_omp/build/NQueensVisualizer',
+      args: [],
+      env: { LIBGL_ALWAYS_SOFTWARE: '1' },
+    }),
+  },
 };
 
 @WebSocketGateway({ cors: true })
@@ -76,18 +86,6 @@ export class NativeAppGateway implements OnGatewayDisconnect {
 
   @SubscribeMessage('stop-haskell')
   handleStopHaskell(@ConnectedSocket() client: Socket) {
-    this.killPty(client);
-  }
-
-  // ─── N-Queens OpenMP ─────────────────────────────────────────────────────────
-
-  @SubscribeMessage('start-n-queens-omp')
-  handleStartNQueens(@ConnectedSocket() client: Socket) {
-    this.spawnPty(client, '/opt/portfolio/n_queens_omp/n_queens_omp', []);
-  }
-
-  @SubscribeMessage('stop-n-queens-omp')
-  handleStopNQueens(@ConnectedSocket() client: Socket) {
     this.killPty(client);
   }
 
@@ -135,6 +133,16 @@ export class NativeAppGateway implements OnGatewayDisconnect {
 
   @SubscribeMessage('stop-polygon-triangulation')
   handleStopPolygon(@ConnectedSocket() client: Socket) {
+    this.sessionPool.releaseSlot(client.id);
+  }
+
+  @SubscribeMessage('start-n-queens-omp')
+  handleStartNQueens(@ConnectedSocket() client: Socket) {
+    return this.acquireGui(client, 'n-queens-omp', 'n-queens-omp-started');
+  }
+
+  @SubscribeMessage('stop-n-queens-omp')
+  handleStopNQueens(@ConnectedSocket() client: Socket) {
     this.sessionPool.releaseSlot(client.id);
   }
 
