@@ -1,4 +1,4 @@
-# Portfolio OS
+Here is the complete, combined README.md formatted inside a single Markdown code block so you can copy and paste it effortlessly.This includes all your original documentation alongside the newly added architecture diagram and the WebSocket proxy explanation.Markdown# Portfolio OS
 
 ![current-state-of-the-webapp](./docs/image.png)
 
@@ -23,33 +23,14 @@ Deployed on a MacBook 2010 (Core 2 Duo 2.4 GHz, 10 GB RAM, Debian 12 headless).
 
 ## Architecture
 
-```
+```text
 Browser
   └── Socket.IO ──────────────────► NestJS (port 3000)
   └── noVNC WebSocket ─────────────► websockify (port 609x)
                                           └── x11vnc (port 591x)
                                                 └── Xvfb (:1x)
                                                       └── App process
-```
-
-### Session pool
-
-GUI apps (VNC type) use a pool of 4 slots. Each slot owns:
-- A dedicated Xvfb virtual display (`:10` – `:13`)
-- A VNC server (ports `5910` – `5913`)
-- A websockify WS proxy (ports `6090` – `6093`)
-- The app process itself
-
-On connect → claim free slot → spawn all 4 processes → emit port to browser.  
-On disconnect → SIGTERM chain (ws → vnc → app → Xvfb) → slot freed.  
-Pool full → `app-error` emitted, visitor shown "try again" message.
-
-Terminal apps (PTY type) bypass the pool — they spawn a `node-pty` process directly per client, unlimited concurrency.
-
-#### Diagram
-
-```mermaid
-graph TD
+Session poolGUI apps (VNC type) use a pool of 4 slots. Each slot owns:A dedicated Xvfb virtual display (:10 – :13)A VNC server (ports 5910 – 5913)A websockify WS proxy (ports 6090 – 6093)The app process itselfOn connect → claim free slot → spawn all 4 processes → emit port to browser.On disconnect → SIGTERM chain (ws → vnc → app → Xvfb) → slot freed.Pool full → app-error emitted, visitor shown "try again" message.Terminal apps (PTY type) bypass the pool — they spawn a node-pty process directly per client, unlimited concurrency.DiagramFragmento de códigograph TD
     subgraph ClientLayer [Browser / Frontend]
         UI[Web UI / WinBox]
         Term[xterm.js Terminal]
@@ -104,36 +85,8 @@ graph TD
     class UI,Term,NoVNC frontend;
     class GW,Pool,PTY backend;
     class Xvfb,App,VNC,WS,TUI_App os;
-```
-
-### Why not Docker?
-
-Docker adds ~3–5 s cold-start overhead per container plus significant RAM per instance. Native processes on Xvfb start in ~1.5 s and share the host OS libraries. On a 2010 MacBook this is the difference between usable and unusable.
-
----
-
-## Stack
-
-- **Runtime**: Node.js + NestJS (TypeScript)
-- **Transport**: Socket.IO WebSockets
-- **GUI streaming**: Xvfb → x11vnc → websockify → noVNC (browser-side RFB)
-- **Terminal**: node-pty → xterm.js
-- **Frontend**: Vanilla JS + WinBox.js (floating windows) + xterm.js
-- **Server**: Debian 12, headless
-
----
-
-## Debugging
-
-### Pool status (HTTP)
-
-```bash
-curl http://localhost:3000/debug/pool
-```
-
-Returns JSON:
-```json
-{
+WebSocket Proxy (Mixed Content & Cloudflare)Because the application is served securely over HTTPS via Cloudflare Tunnels, modern browsers enforce strict "Mixed Content" security rules that block insecure WebSocket (ws://) connections. Additionally, Cloudflare Tunnels only expose the primary web port (3000), leaving the internal websockify ports (6090-6093) completely inaccessible from the outside.To seamlessly bridge this gap, the NestJS main.ts implements an internal proxy using http-proxy-middleware.The frontend requests a secure video stream connection to wss://<domain>/vnc/<port>.NestJS intercepts any URL starting with /vnc/ and proxies the WebSocket upgrade natively to the internal process at http://127.0.0.1:<port>.The raw VNC stream safely piggybacks over the primary encrypted HTTPS tunnel, keeping the server firewall completely closed while satisfying the browser's security requirements.Why not Docker?Docker adds ~3–5 s cold-start overhead per container plus significant RAM per instance. Native processes on Xvfb start in ~1.5 s and share the host OS libraries. On a 2010 MacBook this is the difference between usable and unusable.StackRuntime: Node.js + NestJS (TypeScript)Transport: Socket.IO WebSocketsGUI streaming: Xvfb → x11vnc → websockify → noVNC (browser-side RFB)Terminal: node-pty → xterm.jsFrontend: Vanilla JS + WinBox.js (floating windows) + xterm.jsServer: Debian 12, headlessDebuggingPool status (HTTP)Bashcurl http://localhost:3000/debug/pool
+Returns JSON:JSON{
   "cap": 4,
   "free": 3,
   "slots": [
@@ -144,12 +97,7 @@ Returns JSON:
     ...
   ]
 }
-```
-
-### Server logs
-
-```bash
-# Follow API logs
+Server logsBash# Follow API logs
 journalctl -u portfolio-api -f
 
 # x11vnc logs per slot
@@ -161,76 +109,18 @@ ss -tlnp | grep -E '591[0-3]'
 
 # Check websockify ports
 ss -tlnp | grep -E '609[0-3]'
-```
-
-### Browser console
-
-The frontend has a colour-coded debug logger. Open DevTools → Console. Each event is tagged:
-
-| Tag | Colour | Covers |
-|---|---|---|
-| `[ws]` | blue | Socket.IO connect/disconnect |
-| `[app]` | green | Window open/close events |
-| `[vnc]` | orange | noVNC RFB connection lifecycle |
-| `[err]` | red | Errors from backend or RFB |
-
----
-
-## Deploy
-
-### 1. Install dependencies (run once on server)
-
-```bash
-cd deploy
+Browser consoleThe frontend has a colour-coded debug logger. Open DevTools → Console. Each event is tagged:TagColourCovers[ws]blueSocket.IO connect/disconnect[app]greenWindow open/close events[vnc]orangenoVNC RFB connection lifecycle[err]redErrors from backend or RFBDeploy1. Install dependencies (run once on server)Bashcd deploy
 bash install.sh
-```
-
-Installs: `xvfb x11vnc novnc websockify openjdk-17 maven cmake libglfw3-dev libgl1-mesa-dev g++ libomp-dev`  
-Builds: `PolygonTriangulation`, `n_queens_omp`
-
-### 2. Deploy app binaries manually
-
-| App | Path on server |
-|---|---|
-| FormFiller (Maven project) | `/opt/portfolio/form-filler/` (pom.xml + src/) |
-| Labyrinth Madness (jars) | `/opt/portfolio/labyrinth/LabyrinthApp.jar` + `core.jar` |
-| Haskell binary | `/opt/portfolio/haskell-tui` |
-| N-Queens binary | built by `install.sh` → `/opt/portfolio/n_queens_omp/n_queens_omp` |
-| Polygon binary | built by `install.sh` → `/opt/portfolio/polygon_triangulation/build/PolygonTriangulation` |
-
-### 3. Start the API
-
-```bash
-cd /opt/portfolio/api
+Installs: xvfb x11vnc novnc websockify openjdk-17 maven cmake libglfw3-dev libgl1-mesa-dev g++ libomp-devBuilds: PolygonTriangulation, n_queens_omp2. Deploy app binaries manuallyAppPath on serverFormFiller (Maven project)/opt/portfolio/form-filler/ (pom.xml + src/)Labyrinth Madness (jars)/opt/portfolio/labyrinth/LabyrinthApp.jar + core.jarHaskell binary/opt/portfolio/haskell-tuiN-Queens binarybuilt by install.sh → /opt/portfolio/n_queens_omp/n_queens_ompPolygon binarybuilt by install.sh → /opt/portfolio/polygon_triangulation/build/PolygonTriangulation3. Start the APIBashcd /opt/portfolio/api
 npm ci --omit=dev
 npm run build
 npm run start:prod
-```
-
----
-
-## Local development
-
-GUI apps (VNC) won't work on macOS — no Xvfb/x11vnc. Terminal apps (Haskell, N-Queens) work if binaries are present.
-
-To fake a VNC port for frontend testing:
-
-```bash
-# Terminal 1 — dummy TCP listener on slot 0 ws port
+Local developmentGUI apps (VNC) won't work on macOS — no Xvfb/x11vnc. Terminal apps (Haskell, N-Queens) work if binaries are present.To fake a VNC port for frontend testing:Bash# Terminal 1 — dummy TCP listener on slot 0 ws port
 nc -l 6090
 
 # Terminal 2 — start API
 cd api && npm run start:dev
-```
-
-The frontend will connect and attempt RFB negotiation (which will fail gracefully — enough to test the pool/WS flow).
-
----
-
-## Repo layout
-
-```
-portfolio-proj/
+The frontend will connect and attempt RFB negotiation (which will fail gracefully — enough to test the pool/WS flow).Repo layoutPlaintextportfolio-proj/
 ├── api/
 │   ├── src/
 │   │   ├── gateways/
@@ -247,4 +137,3 @@ portfolio-proj/
 │   ├── polygon-triangulation.sh        # cmake build
 │   └── n-queens-omp.sh                 # g++ -fopenmp build
 └── docs/
-```

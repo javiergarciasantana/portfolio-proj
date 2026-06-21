@@ -70,6 +70,8 @@ sudo cloudflared service install
 sudo systemctl enable cloudflared
 sudo systemctl start cloudflared
 
+sudo systemctl restart cloudflared
+
 # Status check
 sudo systemctl status cloudflared
 ```
