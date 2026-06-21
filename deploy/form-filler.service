@@ -1,0 +1,15 @@
+[Unit]
+Description=FormFiller Portfolio App (Xvfb + noVNC)
+After=network.target
+
+[Service]
+Type=simple
+User=jsantana
+ExecStart=/opt/portfolio/scripts/form-filler.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

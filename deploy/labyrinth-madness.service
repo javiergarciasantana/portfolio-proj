@@ -1,0 +1,15 @@
+[Unit]
+Description=Labyrinth Madness Portfolio App (Xvfb + noVNC)
+After=network.target
+
+[Service]
+Type=simple
+User=jsantana
+ExecStart=/opt/portfolio/scripts/labyrinth-madness.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

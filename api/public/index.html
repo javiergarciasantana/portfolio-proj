@@ -1,221 +1,747 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Portfolio OS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Portfolio</title>
+
     <script src="https://cdn.jsdelivr.net/npm/winbox@0.2.82/dist/winbox.bundle.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script type="module">
-      import RFB from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.3.0/core/rfb.js';
-      window.RFB = RFB;
+        import RFB from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.3.0/core/rfb.js';
+        window.RFB = RFB;
     </script>
+
     <style>
+        /* ── NeXTSTEP Color Palette & Variables ─────────────────────────────── */
+        :root {
+            --nx-bg: #2b2b2b; /* Dark moody workspace background */
+            --nx-gray: #aaaaaa;
+            --nx-dark-gray: #555555;
+            --nx-light: #ffffff;
+            --nx-black: #000000;
+            --nx-accent: #000080; /* Classic deep blue */
+            --win-body: #bfbfbf;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            margin: 0;
             overflow: hidden;
-            background: url('https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=2560&auto=format&fit=crop') no-repeat center center fixed;
-            background-size: cover;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            width: 100vw; height: 100vh;
+            background: var(--nx-bg);
+            /* Classic 90s UNIX bitmap stipple effect */
+            background-image: radial-gradient(#444 15%, transparent 16%), radial-gradient(#444 15%, transparent 16%);
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px;
+            font-family: Helvetica, Arial, sans-serif; /* NeXT heavily relied on Helvetica */
+            -webkit-font-smoothing: none; /* Crisper, retro font rendering */
         }
-        .dock {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            padding: 10px 20px;
-            border-radius: 20px;
-            display: flex;
-            gap: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+
+        /* ── Menu Bar (Classic Motif / OPENSTEP Style) ──────────────────────── */
+        #menubar {
+            position: fixed; top: 0; left: 0; right: 74px; /* Stop before dock */
+            height: 28px;
+            background: var(--nx-gray);
+            border-bottom: 2px solid var(--nx-dark-gray);
+            border-top: 2px solid var(--nx-light);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 14px; z-index: 100000; user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
+        .bar-left, .bar-right { display: flex; align-items: center; gap: 14px; }
+        .bar-logo { font-size: 16px; font-weight: bold; color: var(--nx-black); padding-right: 8px; }
+        .bar-item {
+            color: var(--nx-black); font-size: 13px; font-weight: bold;
+            padding: 2px 8px; cursor: default;
+            border: 1px solid transparent;
+        }
+        .bar-item:hover { 
+            border-top: 1px solid var(--nx-light);
+            border-left: 1px solid var(--nx-light);
+            border-bottom: 1px solid var(--nx-dark-gray);
+            border-right: 1px solid var(--nx-dark-gray);
+        }
+        #clock { color: var(--nx-black); font-size: 13px; font-weight: bold; }
+
+        /* ── Desktop ────────────────────────────────────────────────────────── */
+        #desktop { position: fixed; top: 28px; left: 0; right: 74px; bottom: 0; z-index: 1; }
+
+        /* ── Dock (Right aligned, vertical) ─────────────────────────────────── */
+        #dock {
+            position: fixed; top: 0; right: 0; bottom: 0; width: 74px;
+            background: var(--nx-gray);
+            border-left: 2px solid var(--nx-light);
+            box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; align-items: center; 
+            padding: 10px 0; gap: 12px;
+            z-index: 99998;
+        }
+
+        /* ── App Icon ───────────────────────────────────────────────────────── */
         .app-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            transition: transform 0.2s;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            position: relative; display: flex; flex-direction: column;
+            align-items: center; cursor: pointer;
         }
-        .app-icon:hover { transform: translateY(-10px) scale(1.1); }
-        .icon-terminal { background: linear-gradient(135deg, #2b5876, #4e4376); }
+        .app-icon-shell {
+            width: 52px; height: 52px;
+            background: var(--nx-gray);
+            display: flex; align-items: center; justify-content: center;
+            /* Heavy 3D Outset Bevel */
+            border-top: 3px solid var(--nx-light);
+            border-left: 3px solid var(--nx-light);
+            border-bottom: 3px solid var(--nx-dark-gray);
+            border-right: 3px solid var(--nx-dark-gray);
+            box-shadow: 2px 2px 0 var(--nx-black);
+            transition: all 0.05s;
+        }
+        .app-icon-shell:active {
+            /* Inset Bevel on click */
+            border-top: 3px solid var(--nx-dark-gray);
+            border-left: 3px solid var(--nx-dark-gray);
+            border-bottom: 3px solid var(--nx-light);
+            border-right: 3px solid var(--nx-light);
+            box-shadow: none;
+            transform: translate(2px, 2px);
+        }
+        .app-icon-shell svg {
+            width: 36px; height: 36px;
+            image-rendering: pixelated;
+        }
+        .app-tooltip {
+            position: absolute; right: calc(100% + 10px); top: 50%;
+            transform: translateY(-50%);
+            background: var(--nx-black); color: var(--nx-light);
+            font-size: 12px; font-weight: bold;
+            white-space: nowrap; padding: 4px 8px; 
+            border: 1px solid var(--nx-light);
+            opacity: 0; pointer-events: none;
+        }
+        .app-icon:hover .app-tooltip { opacity: 1; }
+        .app-dot {
+            position: absolute; bottom: -4px; right: -4px;
+            width: 12px; height: 12px; background: var(--nx-light);
+            border: 2px solid var(--nx-black);
+            opacity: 1;
+        }
+        .app-dot.hidden { display: none; }
+
+        /* ── Custom App Animations ────────────────────────────────────────────── */
+        @keyframes spin-face-3d {
+            0%   { transform: perspective(200px) rotateY(0deg); }
+            100% { transform: perspective(200px) rotateY(360deg); }
+        }
+
+        .app-icon:hover .spin-on-hover {
+            animation: spin-face-3d 2s linear infinite;
+            transform-origin: center;
+            transform-style: preserve-3d;
+        }
+
+        /* ── WinBox NeXTSTEP overrides ──────────────────────────────────────── */
+        .winbox {
+            border-radius: 0 !important;
+            background: var(--nx-gray) !important;
+            /* Outer Window Bevel */
+            border-top: 2px solid var(--nx-light) !important;
+            border-left: 2px solid var(--nx-light) !important;
+            border-bottom: 2px solid var(--nx-black) !important;
+            border-right: 2px solid var(--nx-black) !important;
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.6) !important;
+        }
+        .winbox .wb-drag { 
+            background: var(--nx-black) !important; 
+            height: 24px !important;
+        }
+        .winbox .wb-title { 
+            color: var(--nx-light) !important; 
+            font-size: 13px !important; font-weight: bold !important; 
+            text-align: center !important; font-family: Helvetica, sans-serif !important;
+        }
+        .winbox .wb-control {
+            position: absolute !important; right: 4px !important; top: 4px !important;
+            display: flex !important; gap: 4px !important;
+        }
+        /* Square retro buttons */
+        .winbox .wb-min, .winbox .wb-max, .winbox .wb-close {
+            width: 16px !important; height: 16px !important; border-radius: 0 !important;
+            background: var(--nx-gray) !important;
+            border-top: 2px solid var(--nx-light) !important;
+            border-left: 2px solid var(--nx-light) !important;
+            border-bottom: 2px solid var(--nx-dark-gray) !important;
+            border-right: 2px solid var(--nx-dark-gray) !important;
+            background-image: none !important;
+            position: relative;
+        }
+        .winbox .wb-close::after {
+            content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
+            background: var(--nx-black);
+        }
+        .winbox .wb-min::after {
+            content: ''; position: absolute; top: 50%; left: 3px; right: 3px; height: 2px;
+            background: var(--nx-black);
+        }
+        .winbox .wb-max::after {
+            content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
+            border: 2px solid var(--nx-black);
+        }
+        .winbox .wb-full { display: none !important; }
+        .winbox .wb-body { 
+            background: var(--win-body) !important; 
+            border: 2px solid var(--nx-dark-gray) !important;
+            border-bottom: none !important; border-right: none !important;
+            margin: 2px !important;
+        }
+
+        /* ── Start Menu Dropdown ────────────────────────────────────────────── */
+        .dropdown-container {
+            position: relative;
+        }
+
+        #start-button:active {
+            border-top: 2px solid var(--nx-dark-gray) !important;
+            border-left: 2px solid var(--nx-dark-gray) !important;
+            border-bottom: 2px solid var(--nx-light) !important;
+            border-right: 2px solid var(--nx-light) !important;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            background: var(--nx-gray);
+            border-top: 2px solid var(--nx-light);
+            border-left: 2px solid var(--nx-light);
+            border-bottom: 2px solid var(--nx-black);
+            border-right: 2px solid var(--nx-black);
+            min-width: 180px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            z-index: 100001; /* Stays above WinBox windows */
+        }
+
+        .dropdown-menu.hidden {
+            display: none;
+        }
+
+        .menu-header {
+            background: var(--nx-black);
+            color: var(--nx-light);
+            padding: 4px 8px;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .dropdown-menu .menu-item {
+            color: var(--nx-black);
+            text-decoration: none;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+
+        .dropdown-menu .menu-item:hover {
+            background: var(--nx-light);
+            border: 1px dotted var(--nx-black);
+        }
+
+        .menu-separator {
+            height: 2px;
+            background: var(--nx-dark-gray);
+            border-bottom: 1px solid var(--nx-light);
+            margin: 4px 0;
+        }
+
+        /* ── Mobile Responsiveness (The "Kinda OK" Fix) ─────────────────────── */
+        @media (max-width: 768px) {
+
+            .hide-on-mobile {
+                display: none !important;
+            }
+            /* Hide the complex hardware widgets to save space on the menu bar */
+            .bar-right #mac-cpu-widget,
+            .bar-right #mac-fan-widget {
+                display: none !important;
+            }
+
+            /* Move the Dock from the right side to the bottom */
+            #dock {
+                top: auto;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100vw;
+                height: 74px;
+                flex-direction: row;      /* Horizontal layout */
+                justify-content: center;
+                border-left: none;
+                border-top: 2px solid var(--nx-light);
+                padding: 0 10px;
+                overflow-x: auto;         /* Allow scrolling if there are many apps */
+            }
+
+            /* Stop the desktop area above the bottom dock */
+            #desktop {
+                right: 0;
+                bottom: 74px;
+            }
+
+            /* Shrink app icons slightly so they fit better on small screens */
+            .app-icon-shell {
+                width: 44px;
+                height: 44px;
+            }
+            .app-icon-shell svg {
+                width: 28px;
+                height: 28px;
+            }
+            /* Force windows to the very front on mobile so they cover the UI */
+            .winbox {
+                z-index: 999999 !important;
+            }
+        }
+
+        /* ── Loading / Error states ──────────────────────────────────────────── */
+        .center-state {
+            height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 14px; color: var(--nx-black);
+        }
+        .spinner {
+            width: 24px; height: 24px;
+            border: 3px solid var(--nx-dark-gray); border-top-color: var(--nx-black);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .center-state span { font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="dock">
-        <div class="app-icon icon-terminal" onclick="openHaskellTerminal()">Haskell</div>
-        <div class="app-icon icon-terminal" onclick="openFormFillerJavaFX()">FormFiller</div>
-        <div class="app-icon icon-terminal" onclick="openLabyrinthMadnessJavaProc()">LabyrinthMadness</div>
+<div id="menubar">
+    
+    <div class="bar-left" style="display: flex; gap: 15px; align-items: center;">
+        
+        <div class="dropdown-container">
+            <button id="start-button" class="bar-item" style="display: flex; gap: 6px; align-items: center; background: #bfbfbf; border-top: 2px solid #fff; border-left: 2px solid #fff; border-bottom: 2px solid #555; border-right: 2px solid #555; padding: 2px 8px; cursor: pointer; outline: none;">
+                <span style="font-weight: bold; color: white;">My Portfolio OS</span>
+            </button>
+            
+            <div id="start-menu" class="dropdown-menu hidden">
+                <div class="menu-header">WORKSPACE</div>
+                <a href="https://github.com/javiergarciasantana" target="_blank" class="menu-item">GitHub Profile</a>
+                <a href="www.linkedin.com/in/javier-garcia-santana-362691302" target="_blank" class="menu-item">LinkedIn Network</a>
+                <div class="menu-separator"></div>
+                <a href="mailto:javiergs0703@gmail.com" class="menu-item">Send Email</a>
+            </div>
+        </div>        
+        <span class="bar-item hide-on-mobile" style="color: #cdd6f4;">Javier</span>
+        <span class="bar-item hide-on-mobile" style="color: #cdd6f4;">García</span>
+        <span class="bar-item hide-on-mobile" style="color: #cdd6f4;">Santana</span>
+    </div>
+    
+    <div class="bar-right">
+
+        <div id="mac-cpu-widget" style="color: var(--nx-black); font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                <rect x="9" y="9" width="6" height="6"></rect>
+                <line x1="9" y1="1" x2="9" y2="4"></line>
+                <line x1="15" y1="1" x2="15" y2="4"></line>
+                <line x1="9" y1="20" x2="9" y2="23"></line>
+                <line x1="15" y1="20" x2="15" y2="23"></line>
+                <line x1="20" y1="9" x2="23" y2="9"></line>
+                <line x1="20" y1="14" x2="23" y2="14"></line>
+                <line x1="1" y1="9" x2="4" y2="9"></line>
+                <line x1="1" y1="14" x2="4" y2="14"></line>
+            </svg>
+            <span><span id="cpu-core-0">--</span>% | <span id="cpu-core-1">--</span>%</span>
+        </div>
+
+        <div id="mac-fan-widget" style="color: #cdd6f4; font-family: 'SF Pro', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 12c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z"></path>
+                <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5z"></path>
+                <path d="M12 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" transform="rotate(45 12 12)"></path>
+                <path d="M12 12c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z" transform="rotate(45 12 12)"></path>
+            </svg>
+            <span id="fan-rpm">--</span> RPM
+        </div>
+
+        <div id="clock"></div>
 
     </div>
+</div>
 
-    <script>
-        // Conectar con el backend de NestJS
-        const socket = io();
+<div id="desktop"></div>
+<div id="dock"></div>
 
-        function openHaskellTerminal() {
-            // Creamos la ventana de WinBox
-            const win = new WinBox("Haskell programs", {
-                width: "1200px",
-                height: "800px",
-                x: "center",
-                y: "center",
-                background: "#2b5876",
-                // Creamos un div vacío para alojar la terminal
-                html: "<div id='terminal-container' style='width:100%; height:100%; padding:5px; background: #000;'></div>",         
-                onclose: function() {
-                    console.log("Cerrando ventana WinBox, deteniendo contenedor...");
-                    socket.emit('stop-haskell');
-                }
+<script>
+    const socket = io();
+
+    const log = (() => {
+        return (tag, ...args) => {
+            console.log(`[${tag}]`, ...args);
+        };
+    })();
+
+    // ── Clock ──────────────────────────────────────────────────────────────────
+    function tick() {
+        const now = new Date();
+        const d = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+        const t = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+        document.getElementById('clock').textContent = `${d}  ${t}`;
+    }
+    tick(); setInterval(tick, 1000);
+
+    // ── App registry (WITH INLINE 16-BIT SVG ICONS) ────────────────────────────
+    const APPS = [
+        {
+            id: 'haskell-tui', name: 'Haskell Terminal', type: 'terminal',
+            // 16-bit terminal icon SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><rect x="2" y="2" width="28" height="28" fill="#111" stroke="#555" stroke-width="2"/><text x="16" y="22" fill="#0f0" font-family="monospace" font-weight="bold" font-size="20" text-anchor="middle">λ_</text></svg>`,
+            language: 'Haskell', description: 'Purely functional demos',
+            startEvent: 'start-haskell', stopEvent: 'stop-haskell',
+            window: { width: 800, height: 500 },
+        },
+        {
+            id: 'form-filler', name: 'FormFiller', type: 'vnc',
+            // 16-bit Clipboard SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect x="6" y="8" width="20" height="22" fill="#fff" stroke="#000" stroke-width="2"/><rect x="10" y="4" width="12" height="6" fill="#aaa" stroke="#000" stroke-width="2"/><line x1="10" y1="16" x2="22" y2="16" stroke="#000" stroke-width="2"/><line x1="10" y1="20" x2="22" y2="20" stroke="#000" stroke-width="2"/><line x1="10" y1="24" x2="18" y2="24" stroke="#000" stroke-width="2"/></svg>`,
+            language: 'Java / JavaFX', description: 'Automated form processing',
+            startEvent: 'start-form-filler', stopEvent: 'stop-form-filler', readyEvent: 'form-filler-started',
+            window: { width: 600, height: 700 },
+        },
+        {
+            id: 'labyrinth-madness', name: 'Labyrinth', type: 'vnc',
+            // 16-bit Maze block SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><path d="M4,4 L28,4 L28,28 L4,28 Z M8,8 L24,8 L24,12 L12,12 L12,24 L8,24 Z M16,16 L24,16 L24,24 L16,24 Z" fill="#00f" stroke="#0ff" stroke-width="1"/></svg>`,
+            language: 'Java / Processing', description: 'Maze generation',
+            startEvent: 'start-labyrinth-madness', stopEvent: 'stop-labyrinth-madness', readyEvent: 'labyrinth-madness-started',
+            window: { width: 608, height: 740 },
+        },
+        {
+            id: 'n-queens-omp', name: 'N-Queens', type: 'vnc',
+            // 16-bit Chess Crown SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#fff" stroke="#000" stroke-width="2"/><path d="M6,24 L26,24 L24,10 L20,16 L16,8 L12,16 L8,10 Z" fill="#000"/></svg>`,
+            language: 'C++ / OpenMP', description: 'Parallel solver',
+            startEvent: 'start-n-queens-omp', stopEvent: 'stop-n-queens-omp',readyEvent: 'n-queens-omp-started',
+            window: { width: 1000, height: 600 },
+        },
+        {
+            id: 'polygon-triangulation', name: 'Triangulation', type: 'vnc',
+            // 16-bit Triangle wireframe SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#444"/><polygon points="16,4 28,26 4,26" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="4" x2="16" y2="26" stroke="#f00" stroke-width="2"/><line x1="16" y1="16" x2="4" y2="26" stroke="#0f0" stroke-width="2"/><line x1="16" y1="16" x2="28" y2="26" stroke="#00f" stroke-width="2"/></svg>`,
+            language: 'C++ / OpenGL', description: 'Polygon triangulation',
+            startEvent: 'start-polygon-triangulation', stopEvent: 'stop-polygon-triangulation', readyEvent: 'polygon-triangulation-started',
+            window: { width: 800, height: 600 },
+        },
+        {
+            id: 'dalui-scrape', name: 'Web Snatcher', type: 'iframe',
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#500"/><circle cx="16" cy="16" r="12" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="2,2"/><circle cx="16" cy="16" r="6" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="0" x2="16" y2="32" stroke="#fff" stroke-width="2"/><line x1="0" y1="16" x2="32" y2="16" stroke="#fff" stroke-width="2"/><line x1="4" y1="4" x2="28" y2="28" stroke="#fff" stroke-width="2"/><line x1="4" y1="28" x2="28" y2="4" stroke="#fff" stroke-width="2"/></svg>`,
+            language: 'Chrome Extension', description: 'Content extractor',
+            url: 'snatcher-showcase.html', // Point to the new HTML file!
+            window: { width: 850, height: 550 },
+        },
+        {
+            id: 'about-me', name: 'About Me', type: 'iframe',
+            // The SVG gray box stays still, but the image gets the spin-on-hover class!
+            iconSvg: `<svg viewBox="0 0 32 32">
+                <rect width="32" height="32" fill="#bfbfbf" stroke="#000" stroke-width="2"/>
+                <image href="./img/face.png" x="2" y="2" width="28" height="28" class="spin-on-hover" style="image-rendering: pixelated;" />
+            </svg>`,
+            language: 'Profile', description: 'My resume and tech stack',
+            url: 'profile.html', 
+            window: { width: 650, height: 600 },
+        },
+        {
+            id: 'macintovps', name: 'Server Specs', type: 'iframe',
+            // 16-bit Retro Server Rack SVG
+            iconSvg: `<svg viewBox="0 0 32 32">
+                <rect width="32" height="32" fill="#bfbfbf" stroke="#000" stroke-width="2"/>
+                <rect x="6" y="4" width="20" height="24" fill="#333" stroke="#000" stroke-width="2"/>
+                <rect x="8" y="6" width="16" height="5" fill="#222" stroke="#111" stroke-width="1"/>
+                <rect x="8" y="13" width="16" height="5" fill="#222" stroke="#111" stroke-width="1"/>
+                <rect x="8" y="20" width="16" height="5" fill="#222" stroke="#111" stroke-width="1"/>
+                <circle cx="11" cy="8.5" r="1" fill="#0f0"/>
+                <circle cx="14" cy="8.5" r="1" fill="#f00"/>
+                <circle cx="11" cy="15.5" r="1" fill="#0f0"/>
+                <circle cx="14" cy="15.5" r="1" fill="#0f0"/>
+                <circle cx="11" cy="22.5" r="1" fill="#0f0"/>
+                <circle cx="14" cy="22.5" r="1" fill="#f00"/>
+            </svg>`,
+            language: 'Debian 12', description: 'MacintoVPS Architecture',
+            url: 'server.html', // Points to the new file below
+            window: { width: 850, height: 650 },
+        },
+    ];
+
+    const openWindows = new Map();
+
+    function markRunning(id, running) {
+        const dot = document.querySelector(`[data-id="${id}"] .app-dot`);
+        if (dot) dot.classList.toggle('hidden', !running);
+    }
+
+    function onWindowClose(app) {
+        socket.emit(app.stopEvent);
+        openWindows.delete(app.id);
+        markRunning(app.id, false);
+    }
+
+    // ── Terminal app ───────────────────────────────────────────────────────────
+   function launchTerminal(app) {
+        const bodyId = `term-${app.id}`;
+        const win = new WinBox(app.name, {
+            width: `${app.window.width}px`, height: `${app.window.height}px`,
+            x: 'center', y: 'center',
+            html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;padding:4px"></div>`,
+            onclose() { onWindowClose(app); term?.dispose(); return false; },
+        });
+        openWindows.set(app.id, win);
+
+        let term;
+        setTimeout(() => {
+            const el = document.getElementById(bodyId);
+            if (!el) return;
+            term = new Terminal({
+                theme: { background:'#000', foreground:'#ccc', cursor:'#0f0' }, // Classic UNIX colors
+                fontFamily: 'monospace',
+                fontSize: 14, cursorBlink: true, cursorStyle: 'block',
             });
+            const fit = new FitAddon.FitAddon();
+            term.loadAddon(fit);
+            term.open(el);
+            fit.fit();
+            new ResizeObserver(() => fit.fit()).observe(el);
+            term.onData(data => socket.emit('terminal-input', data));
+            term.onResize(({ cols, rows }) => socket.emit('terminal-resize', { cols, rows }));
+            socket.on('terminal-output', data => term.write(data));
+            socket.emit(app.startEvent);
+        }, 60);
+    }
 
-            // Esperamos unos milisegundos a que WinBox pinte el div en pantalla
-            setTimeout(() => {
-                // Configuramos la terminal Xterm
-                const term = new Terminal({
-                    theme: { background: '#000000' },
-                    fontFamily: 'monospace',
-                    cursorBlink: true
-                });
-                
-                term.open(document.getElementById('terminal-container'));
+    // ── VNC app ───────────────────────────────────────────────────────────────
+    function launchVnc(app) {
+        if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+        markRunning(app.id, true);
 
-                // 1. Cuando tecleas en la web, se envía al backend
-                term.onData(data => {
-                    socket.emit('terminal-input', data);
-                });
+        // --- Mobile Detection & Sizing ---
+        const isMobile = window.innerWidth <= 768;
 
-                // 2. Cuando el backend recibe datos de Docker, los pinta en la web
-                socket.on('terminal-output', data => {
-                    term.write(data);
-                });
+        const bodyId = `vnc-${app.id}`;
+        const win = new WinBox(app.name, {
+            width: isMobile ? null : `${app.window.width}px`, 
+            height: isMobile ? null : `${app.window.height}px`,
+            x: isMobile ? null : 'center',
+            y: isMobile ? null : 'center',
+            
+            // This forces the window to open already maximized on mobile
+            max: isMobile,
+            html: `<div id="${bodyId}" style="width:100%;height:100%;background:#bfbfbf;">
+                    <div class="center-state">
+                      <div class="spinner"></div>
+                      <span>Connecting via RFB...</span>
+                    </div>
+                  </div>`,
+            onclose() { onWindowClose(app); return false; },
+        });
+        openWindows.set(app.id, win);
+        socket.emit(app.startEvent);
 
-                // 3. ¡Disparamos la creación del contenedor!
-                socket.emit('start-haskell');
+        socket.once(app.readyEvent, ({ port }) => {
+            const el = document.getElementById(bodyId);
+            if (!el) return;
+            el.innerHTML = '';
+            // Dynamically detect if we need ws:// (local) or wss:// (production)
+            const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+            const host = window.location.host; 
+            
+            // Construct the URL to point to our new NestJS proxy route!
+            const wsUrl = `${protocol}${host}/vnc/${port}`;            
+            
+            const connect = () => {
+                if (!window.RFB) { setTimeout(connect, 50); return; }
+                const rfb = new window.RFB(el, wsUrl, { credentials: { password: '' } });
+                rfb.scaleViewport = true; rfb.showDotCursor = true;
+            };
+            connect();
+        });
 
-            }, 100);
+        socket.once('app-error', ({ app: errApp, message }) => {
+            if (errApp !== app.id) return;
+            const el = document.getElementById(bodyId);
+            if (el) el.innerHTML = `
+                <div class="center-state">
+                  <span style="font-size:32px;color:red;font-weight:bold">X</span>
+                  <span>Process Failed</span>
+                  <span style="font-weight:normal">${message}</span>
+                </div>`;
+            markRunning(app.id, false);
+        });
+    }
+
+    // ── Static info card ──────────────────────────────────────────────────────
+    function launchIframe(app) {
+        if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+        markRunning(app.id, true);
+        
+        // --- Mobile Detection & Sizing ---
+        const isMobile = window.innerWidth <= 768;
+        
+        const win = new WinBox(app.name, {
+            width: isMobile ? null : `${app.window.width}px`, 
+            height: isMobile ? null : `${app.window.height}px`,
+            x: isMobile ? null : 'center',
+            y: isMobile ? null : 'center',
+            
+            // This forces the window to open already maximized on mobile
+            max: isMobile,
+            url: app.url, 
+            onclose() { 
+                openWindows.delete(app.id);
+                markRunning(app.id, false); 
+                return false; 
+            },
+        });
+        openWindows.set(app.id, win);
+    }
+    // ── Launch dispatcher ──────────────────────────────────────────────────────
+    function launchApp(app) {
+        if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+        markRunning(app.id, true);
+        if (app.type === 'terminal') launchTerminal(app);
+        else if (app.type === 'iframe') launchIframe(app);
+        else launchVnc(app);
+    }
+
+    // ── Expose Launcher to Iframes ─────────────────────────────────────────────
+    window.openDesktopApp = function(appId) {
+        const app = APPS.find(a => a.id === appId);
+        if (app) launchApp(app);
+    };
+    
+    // ── Start Menu Logic ───────────────────────────────────────────────────────
+    const startBtn = document.getElementById('start-button');
+    const startMenu = document.getElementById('start-menu');
+
+    // Toggle menu on click
+    startBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startMenu.classList.toggle('hidden');
+    });
+
+    // Close menu if clicking anywhere outside of it
+    document.addEventListener('click', (e) => {
+        if (!startMenu.contains(e.target) && !startMenu.classList.contains('hidden')) {
+            startMenu.classList.add('hidden');
         }
+    });
 
-        function openFormFillerJavaFX() {
-            const win = new WinBox("FormFiller App", {
-                width: "512px",
-                height: "600px",
-                x: "center",
-                y: "center",
-                background: "#2b5876",
-                // Div limpio, sin Flexbox forzados
-                html: "<div id='form-filler-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
-                onclose: function() {
-                    socket.emit('stop-form-filler');
-                }
-            });
+    // ── Build Dock ─────────────────────────────────────────────────────────────
+    const dock = document.getElementById('dock');
+    APPS.forEach(app => {
+        const el = document.createElement('div');
+        el.className = 'app-icon';
+        el.dataset.id = app.id;
+        el.innerHTML = `
+            <div class="app-tooltip">${app.name}</div>
+            <div class="app-icon-shell">
+                ${app.iconSvg}
+            </div>
+            <div class="app-dot hidden"></div>`;
+        el.addEventListener('click', () => launchApp(app));
+        dock.appendChild(el);
+    });
 
-            // 1. Le pides a NestJS que arranque el contenedor
-            socket.emit('start-form-filler');
-
-            // 2. Usamos socket.once en lugar de socket.on para que no se dupliquen 
-            // los listeners si cierras y vuelves a abrir la app varias veces.
-            socket.once('form-filler-started', (data) => {
-                console.log("FormFiller corriendo en el puerto:", data.port);
-                
-                // La IP de tu servidor (o localhost si estás en tu Mac Sequoia)
-                const serverIP = window.location.hostname;
-                console.log("Ip del servidor: " + serverIP);
-                // La URL estándar donde noVNC expone el websocket es /websockify
-                const wsUrl = `ws://${serverIP}:${data.port}/websockify`;
-                
-                // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
-                const container = document.getElementById('form-filler-container');
-                const rfb = new window.RFB(container, wsUrl, {
-                    // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
-                    credentials: { password: '' } 
-                });
-
-                // 4. Configuración clave de interfaz gráfica
-                rfb.scaleViewport = true;    // Escala la imagen para que encaje
-                //rfb.clipViewport = true;     // Corta los bordes muertos para evitar "fantasmas"
-                rfb.resizeSession = false;   // Evita el error rojo de la consola
-                rfb.showDotCursor = true;  // Puntero local
-
-                // Eventos opcionales para saber si ha ido bien o mal
-                rfb.addEventListener("connect", () => {
-                    console.log("¡Conexión VNC establecida con éxito!");
-                });
-                
-                rfb.addEventListener("disconnect", (e) => {
-                    console.log("Conexión VNC cerrada", e.detail.reason);
-                });
-            });
+    window.addEventListener('DOMContentLoaded', () => {
+        // Check if the 'hasVisited' key exists in the browser's local storage
+        if (!localStorage.getItem('hasVisited')) {
+            
+            // If it doesn't exist, set it so this never runs again for this user
+            localStorage.setItem('hasVisited', 'true');
+            
+            // Find the About Me app in your registry
+            const profileApp = APPS.find(app => app.id === 'about-me');
+            
+            if (profileApp) {
+                // Add a slight 500ms delay so the user sees the empty desktop first, 
+                // making the window pop-up feel more deliberate and "OS-like"
+                setTimeout(() => {
+                    launchApp(profileApp);
+                }, 500);
+            }
         }
-        function openLabyrinthMadnessJavaProc() {
-            const win = new WinBox("Labyrith Madness App", {
-                width: "608px",
-                height: "700px",
-                x: "center",
-                y: "center",
-                background: "#2b5876",
-                // Div limpio, sin Flexbox forzados
-                html: "<div id='labyrinth-madness-container' style='width:100%; height:100%; background: #000; overflow: hidden;'></div>",
-                onclose: function() {
-                    socket.emit('stop-labyrinth-madness');
-                }
-            });
+    });
+</script>
+<script>
+    // Fetches real hardware data from NestJS backend(fanspeed)
+    async function updateFanSpeed() {
+        try {
+            // Adjust the URL if your NestJS API is hosted on a different path or port
+            const response = await fetch('/api/hardware/fan-speed');
+            const data = await response.json();
 
-            // 1. Le pides a NestJS que arranque el contenedor
-            socket.emit('start-labyrinth-madness');
-
-            // 2. Usamos socket.once en lugar de socket.on para que no se dupliquen 
-            // los listeners si cierras y vuelves a abrir la app varias veces.
-            socket.once('labyrinth-madness-started', (data) => {
-                console.log("Labyrinth Madness corriendo en el puerto:", data.port);
-                
-                // La IP de tu servidor (o localhost si estás en tu Mac Sequoia)
-                const serverIP = window.location.hostname;
-                console.log("Ip del servidor: " + serverIP);
-                // La URL estándar donde noVNC expone el websocket es /websockify
-                const wsUrl = `ws://${serverIP}:${data.port}/websockify`;
-                
-                // 3. Inicializamos noVNC apuntando al div y a la URL de VNC
-                const container = document.getElementById('labyrinth-madness-container');
-                const rfb = new window.RFB(container, wsUrl, {
-                    // Como en el script start.sh pusimos "-nopw", no necesitamos contraseña
-                    credentials: { password: '' } 
-                });
-
-                // 4. Configuración clave de interfaz gráfica
-                rfb.scaleViewport = true;    // Escala la imagen para que encaje
-                //rfb.clipViewport = true;     // Corta los bordes muertos para evitar "fantasmas"
-                rfb.resizeSession = false;   // Evita el error rojo de la consola
-                rfb.showDotCursor = true;  // Puntero local
-
-                // --- PERFORMANCE INJECTION ---
-                // We set quality and compression directly on the RFB object
-                // 0 is lowest quality/fastest, 9 is highest quality/slowest. 
-                // 6 is the sweet spot.
-                rfb.qualityLevel = 6;
-                rfb.compressionLevel = 6;
-
-                // Eventos opcionales para saber si ha ido bien o mal
-                rfb.addEventListener("connect", () => {
-                    console.log("¡Conexión VNC establecida con éxito!");
-                });
-                
-                rfb.addEventListener("disconnect", (e) => {
-                    console.log("Conexión VNC cerrada", e.detail.reason);
-                });
-            });
+            const fanElement = document.getElementById('fan-rpm');
+            
+            if (data.status === 'success') {
+                fanElement.innerText = data.rpm;
+                fanElement.style.color = '#cdd6f4'; // Normal color
+            } else if (data.status === 'virtualized') {
+                fanElement.innerText = 'V-SYS'; // Cloud VPS indicator
+                fanElement.style.color = '#f38ba8'; // Red warning color
+            }
+        } catch (error) {
+            console.error("Could not connect to hardware API", error);
         }
-    </script>
+    }
+
+    // Run immediately, then every 3 seconds
+    updateFanSpeed();
+    setInterval(updateFanSpeed, 3000); 
+</script>
+<script>
+    async function updateHardwareStats() {
+        try {
+            // Fetch Fan Speed
+            const fanResponse = fetch('/api/hardware/fan-speed').then(res => res.json());
+            // Fetch CPU Usage
+            const cpuResponse = fetch('/api/hardware/cpu-load').then(res => res.json());
+
+            // Wait for both APIs to return
+            const [fanData, cpuData] = await Promise.all([fanResponse, cpuResponse]);
+
+            // Update Fan UI
+            const fanElement = document.getElementById('fan-rpm');
+            if (fanData.status === 'success') {
+                fanElement.innerText = fanData.rpm;
+                fanElement.style.color = 'var(--nx-black)'; 
+            } else if (fanData.status === 'virtualized') {
+                fanElement.innerText = 'V-SYS'; 
+                fanElement.style.color = '#aa0000'; 
+            }
+
+            // Update CPU UI
+            if (cpuData.status === 'success' && cpuData.cores.length >= 2) {
+                document.getElementById('cpu-core-0').innerText = cpuData.cores[0];
+                document.getElementById('cpu-core-1').innerText = cpuData.cores[1];
+            }
+
+        } catch (error) {
+            console.error("Could not connect to hardware APIs", error);
+        }
+    }
+
+    // Run immediately, then every 3 seconds
+    updateHardwareStats();
+    setInterval(updateHardwareStats, 3000); 
+</script>
 </body>
 </html>
