@@ -2,7 +2,7 @@
 
 ![current-state-of-the-webapp](./docs/image.png)
 
-A macOS-style web desktop that runs my programming projects as live, interactive windows in the browser — no installation required for visitors. Each project launches in its own floating window with native controls (PTY terminal, VNC stream, or static card).
+An old OS web desktop that runs my programming projects as live, interactive windows in the browser — no installation required for visitors. Each project launches in its own floating window with native controls (PTY terminal, VNC stream, or static card).
 
 Deployed on a MacBook 2010 (Core 2 Duo 2.4 GHz, 10 GB RAM, Debian 12 headless).
 
@@ -52,7 +52,7 @@ A desktop GUI application that automates filling in web forms. The JavaFX interf
 
 A computational geometry visualizer that triangulates arbitrary polygons in real time using the ear-clipping algorithm. Rendered via Mesa software OpenGL on `Xvfb` (no physical GPU required), then streamed via VNC — making hardware-accelerated-style graphics run on a headless 2010 MacBook.
 
-### Product-E-Match
+### Web-Scrape
 **Language:** JavaScript / Chrome Extension (MV3)
 
 A browser extension that scrapes and cross-matches product listings across e-commerce platforms to surface pricing and availability at a glance. Requires no server process — presented as a static info card directly in the portfolio UI.
@@ -159,7 +159,7 @@ To bridge this gap, `main.ts` implements an internal proxy using `http-proxy-mid
 
 Docker adds ~3–5 s cold-start overhead per container plus significant RAM per instance. Native processes on Xvfb start in ~1.5 s and share host OS libraries. On a 2010 MacBook this is the difference between usable and unusable.
 
-The Docker-based approach — where `dockerode` lets the NestJS backend programmatically spin up isolated containers on the fly — is documented in full at [docs/docker.md](./docs/docker.md). It's a sound architecture for machines with headroom; this server just doesn't have it.
+The Docker-based approach — where `dockerode` lets the NestJS backend programmatically spin up isolated containers on the fly — is documented in full [here](./docs/docker.md). It's a sound architecture for machines with headroom; this server just doesn't have it.
 
 ---
 
@@ -287,23 +287,6 @@ npm run build
 npm run start:prod
 ```
 
----
-
-## Local Development
-
-GUI apps (VNC) won't work on macOS — no Xvfb/x11vnc. Terminal apps (Haskell, N-Queens) work if binaries are present.
-
-To fake a VNC port for frontend testing:
-
-```bash
-# Terminal 1 — dummy TCP listener on slot 0 ws port
-nc -l 6090
-
-# Terminal 2 — start API
-cd api && npm run start:dev
-```
-
-The frontend will connect and attempt RFB negotiation (which fails gracefully — enough to test the pool/WS flow).
 
 ---
 

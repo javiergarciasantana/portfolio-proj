@@ -1,7 +1,5 @@
 # Docker Images and Their Greatness
 
----
-
 ### Many programs, many ways of running
 
 Having fully-fledged applications just a click away is no easy task, and that is exactly where `Docker` and dockerode come in handy. On my server, I can clone my repositories, which are already equipped with their own `Dockerfiles`, to build images that can be dynamically spun up by the backend.
