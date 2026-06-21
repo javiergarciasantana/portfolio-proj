@@ -8,6 +8,15 @@ Deployed on a MacBook 2010 (Core 2 Duo 2.4 GHz, 10 GB RAM, Debian 12 headless).
 
 ---
 
+## Table of Contents
+
+* [Host machine used to run this project](./docs/host.md)
+* [My Showcased Projects](#my-showcased-projects)
+* [Inner workings](#inner-workings)
+* [Managing Docker images](./docs/docker.md)
+
+---
+
 ## Projects
 
 | App | Language | Type | How it runs |
@@ -18,6 +27,35 @@ Deployed on a MacBook 2010 (Core 2 Duo 2.4 GHz, 10 GB RAM, Debian 12 headless).
 | N-Queens Parallel | C++ / OpenMP | Terminal | node-pty → xterm.js |
 | Polygon Triangulation | C++ / GLFW / OpenGL | VNC | Xvfb + Mesa SW GL + noVNC |
 | WP Web Snatcher | Chrome Extension (MV3) | Info card | Static — no server process |
+
+---
+
+## My Showcased Projects
+
+### Labyrinth Madness
+**Language:** Java + Processing
+
+A procedurally generated maze visualizer and solver. The maze is built at runtime and rendered via the Processing graphics library. Multiple pathfinding algorithms (BFS, DFS) navigate it in real time. Runs as a GUI application inside a virtual display, streamed to the browser over VNC.
+
+### Haskell Functions
+**Language:** Haskell
+
+An interactive terminal showcasing a collection of functional programming algorithms and exercises — list manipulation, recursion, higher-order functions, and type-class-driven polymorphism. Runs as a TUI piped through a PTY directly into an `xterm.js` session in the browser.
+
+### FormFiller
+**Language:** Java / JavaFX
+
+A desktop GUI application that automates filling in web forms. The JavaFX interface is rendered on a headless virtual display (`Xvfb`) and streamed live to the browser via `x11vnc` + `noVNC`, giving visitors a fully interactive window into the running app.
+
+### Polygon Triangulation
+**Language:** C++ / GLFW / OpenGL
+
+A computational geometry visualizer that triangulates arbitrary polygons in real time using the ear-clipping algorithm. Rendered via Mesa software OpenGL on `Xvfb` (no physical GPU required), then streamed via VNC — making hardware-accelerated-style graphics run on a headless 2010 MacBook.
+
+### Product-E-Match
+**Language:** JavaScript / Chrome Extension (MV3)
+
+A browser extension that scrapes and cross-matches product listings across e-commerce platforms to surface pricing and availability at a glance. Requires no server process — presented as a static info card directly in the portfolio UI.
 
 ---
 
@@ -120,6 +158,36 @@ To bridge this gap, `main.ts` implements an internal proxy using `http-proxy-mid
 ### Why Not Docker?
 
 Docker adds ~3–5 s cold-start overhead per container plus significant RAM per instance. Native processes on Xvfb start in ~1.5 s and share host OS libraries. On a 2010 MacBook this is the difference between usable and unusable.
+
+The Docker-based approach — where `dockerode` lets the NestJS backend programmatically spin up isolated containers on the fly — is documented in full at [docs/docker.md](./docs/docker.md). It's a sound architecture for machines with headroom; this server just doesn't have it.
+
+---
+
+## Inner workings
+
+### Used technologies
+- [Debian 12](https://www.debian.org/)
+- [Node.js](https://nodejs.org/)
+- [NestJS](https://nestjs.com/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Docker](https://www.docker.com/) + [dockerode](https://github.com/apocas/dockerode)
+- [Socket.io](https://socket.io/)
+- [WebSockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+- [VNC](https://en.wikipedia.org/wiki/Virtual_Network_Computing) / [x11vnc](https://github.com/LibVNC/x11vnc)
+- [noVNC](https://novnc.com/)
+- [Xvfb](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml)
+
+### The `Xvfb` virtual monitor
+
+`Xvfb` (X Virtual Framebuffer) is an X11 display server that performs all graphical operations entirely in memory rather than outputting to a physical screen. When a GUI application — JavaFX, Processing, GLFW/OpenGL — starts, it targets a virtual display (e.g. `DISPLAY=:10`). The application thinks it has a real monitor; in reality it is drawing into a region of RAM.
+
+From there the chain is:
+
+1. **`x11vnc`** reads directly from that framebuffer and broadcasts the screen contents over the VNC protocol.
+2. **`websockify`** bridges VNC's raw TCP stream to WebSockets.
+3. **`noVNC`** in the browser receives the WebSocket stream and renders it onto a `<canvas>`, giving the visitor a live, interactive desktop window — with full mouse and keyboard passthrough — despite the server having no physical monitor at all.
+
+Each GUI session slot (`:10` – `:13`) owns its own independent `Xvfb` instance, so four visitors can each run a different graphical app simultaneously without displays ever interfering.
 
 ---
 
