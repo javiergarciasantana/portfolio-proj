@@ -129,6 +129,18 @@
         }
         .app-dot.hidden { display: none; }
 
+        /* ── Custom App Animations ────────────────────────────────────────────── */
+        @keyframes spin-face-3d {
+            0%   { transform: perspective(200px) rotateY(0deg); }
+            100% { transform: perspective(200px) rotateY(360deg); }
+        }
+
+        .app-icon:hover .spin-on-hover {
+            animation: spin-face-3d 2s linear infinite;
+            transform-origin: center;
+            transform-style: preserve-3d;
+        }
+
         /* ── WinBox NeXTSTEP overrides ──────────────────────────────────────── */
         .winbox {
             border-radius: 0 !important;
@@ -246,209 +258,263 @@
 <div id="dock"></div>
 
 <script>
-const socket = io();
+    const socket = io();
 
-const log = (() => {
-    return (tag, ...args) => {
-        console.log(`[${tag}]`, ...args);
-    };
-})();
-
-// ── Clock ──────────────────────────────────────────────────────────────────
-function tick() {
-    const now = new Date();
-    const d = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
-    const t = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
-    document.getElementById('clock').textContent = `${d}  ${t}`;
-}
-tick(); setInterval(tick, 1000);
-
-// ── App registry (WITH INLINE 16-BIT SVG ICONS) ────────────────────────────
-const APPS = [
-    {
-        id: 'haskell-tui', name: 'Haskell Terminal', type: 'terminal',
-        // 16-bit terminal icon SVG
-        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><rect x="2" y="2" width="28" height="28" fill="#111" stroke="#555" stroke-width="2"/><text x="16" y="22" fill="#0f0" font-family="monospace" font-weight="bold" font-size="20" text-anchor="middle">λ_</text></svg>`,
-        language: 'Haskell', description: 'Purely functional demos',
-        startEvent: 'start-haskell', stopEvent: 'stop-haskell',
-        window: { width: 800, height: 500 },
-    },
-    {
-        id: 'form-filler', name: 'FormFiller', type: 'vnc',
-        // 16-bit Clipboard SVG
-        iconSvg: `<svg viewBox="0 0 32 32"><rect x="6" y="8" width="20" height="22" fill="#fff" stroke="#000" stroke-width="2"/><rect x="10" y="4" width="12" height="6" fill="#aaa" stroke="#000" stroke-width="2"/><line x1="10" y1="16" x2="22" y2="16" stroke="#000" stroke-width="2"/><line x1="10" y1="20" x2="22" y2="20" stroke="#000" stroke-width="2"/><line x1="10" y1="24" x2="18" y2="24" stroke="#000" stroke-width="2"/></svg>`,
-        language: 'Java / JavaFX', description: 'Automated form processing',
-        startEvent: 'start-form-filler', stopEvent: 'stop-form-filler', readyEvent: 'form-filler-started',
-        window: { width: 600, height: 700 },
-    },
-    {
-        id: 'labyrinth-madness', name: 'Labyrinth', type: 'vnc',
-        // 16-bit Maze block SVG
-        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><path d="M4,4 L28,4 L28,28 L4,28 Z M8,8 L24,8 L24,12 L12,12 L12,24 L8,24 Z M16,16 L24,16 L24,24 L16,24 Z" fill="#00f" stroke="#0ff" stroke-width="1"/></svg>`,
-        language: 'Java / Processing', description: 'Maze generation',
-        startEvent: 'start-labyrinth-madness', stopEvent: 'stop-labyrinth-madness', readyEvent: 'labyrinth-madness-started',
-        window: { width: 608, height: 740 },
-    },
-    {
-        id: 'n-queens-omp', name: 'N-Queens', type: 'vnc',
-        // 16-bit Chess Crown SVG
-        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#fff" stroke="#000" stroke-width="2"/><path d="M6,24 L26,24 L24,10 L20,16 L16,8 L12,16 L8,10 Z" fill="#000"/></svg>`,
-        language: 'C++ / OpenMP', description: 'Parallel solver',
-        startEvent: 'start-n-queens-omp', stopEvent: 'stop-n-queens-omp',readyEvent: 'n-queens-omp-started',
-        window: { width: 1000, height: 600 },
-    },
-    {
-        id: 'polygon-triangulation', name: 'Triangulation', type: 'vnc',
-        // 16-bit Triangle wireframe SVG
-        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#444"/><polygon points="16,4 28,26 4,26" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="4" x2="16" y2="26" stroke="#f00" stroke-width="2"/><line x1="16" y1="16" x2="4" y2="26" stroke="#0f0" stroke-width="2"/><line x1="16" y1="16" x2="28" y2="26" stroke="#00f" stroke-width="2"/></svg>`,
-        language: 'C++ / OpenGL', description: 'Polygon triangulation',
-        startEvent: 'start-polygon-triangulation', stopEvent: 'stop-polygon-triangulation', readyEvent: 'polygon-triangulation-started',
-        window: { width: 800, height: 600 },
-    },
-    {
-        id: 'dalui-scrape', name: 'Web Snatcher', type: 'info',
-        // 16-bit Spiderweb SVG
-        iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#500"/><circle cx="16" cy="16" r="12" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="2,2"/><circle cx="16" cy="16" r="6" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="0" x2="16" y2="32" stroke="#fff" stroke-width="2"/><line x1="0" y1="16" x2="32" y2="16" stroke="#fff" stroke-width="2"/><line x1="4" y1="4" x2="28" y2="28" stroke="#fff" stroke-width="2"/><line x1="4" y1="28" x2="28" y2="4" stroke="#fff" stroke-width="2"/></svg>`,
-        language: 'Chrome Extension', description: 'Content extractor',
-        startEvent: 'start-dalui-scrape', stopEvent: 'stop-dalui-scrape', github: 'https://github.com/javiersantana/dalui-scrape',
-        window: { width: 680, height: 480 },
-    },
-];
-
-const openWindows = new Map();
-
-function markRunning(id, running) {
-    const dot = document.querySelector(`[data-id="${id}"] .app-dot`);
-    if (dot) dot.classList.toggle('hidden', !running);
-}
-
-function onWindowClose(app) {
-    socket.emit(app.stopEvent);
-    openWindows.delete(app.id);
-    markRunning(app.id, false);
-}
-
-// ── Terminal app ───────────────────────────────────────────────────────────
-function launchTerminal(app) {
-    const bodyId = `term-${app.id}`;
-    const win = new WinBox(app.name, {
-        width: `${app.window.width}px`, height: `${app.window.height}px`,
-        x: 'center', y: 'center',
-        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;padding:4px"></div>`,
-        onclose() { onWindowClose(app); term?.dispose(); return false; },
-    });
-    openWindows.set(app.id, win);
-
-    let term;
-    setTimeout(() => {
-        const el = document.getElementById(bodyId);
-        if (!el) return;
-        term = new Terminal({
-            theme: { background:'#000', foreground:'#ccc', cursor:'#0f0' }, // Classic UNIX colors
-            fontFamily: 'monospace',
-            fontSize: 14, cursorBlink: true, cursorStyle: 'block',
-        });
-        const fit = new FitAddon.FitAddon();
-        term.loadAddon(fit);
-        term.open(el);
-        fit.fit();
-        new ResizeObserver(() => fit.fit()).observe(el);
-        term.onData(data => socket.emit('terminal-input', data));
-        term.onResize(({ cols, rows }) => socket.emit('terminal-resize', { cols, rows }));
-        socket.on('terminal-output', data => term.write(data));
-        socket.emit(app.startEvent);
-    }, 60);
-}
-
-// ── VNC app ───────────────────────────────────────────────────────────────
-function launchVnc(app) {
-    const bodyId = `vnc-${app.id}`;
-    const win = new WinBox(app.name, {
-        width: `${app.window.width}px`, height: `${app.window.height}px`,
-        x: 'center', y: 'center',
-        html: `<div id="${bodyId}" style="width:100%;height:100%;background:#bfbfbf;">
-                 <div class="center-state">
-                   <div class="spinner"></div>
-                   <span>Connecting via RFB...</span>
-                 </div>
-               </div>`,
-        onclose() { onWindowClose(app); return false; },
-    });
-    openWindows.set(app.id, win);
-    socket.emit(app.startEvent);
-
-    socket.once(app.readyEvent, ({ port }) => {
-        const el = document.getElementById(bodyId);
-        if (!el) return;
-        el.innerHTML = '';
-        const host = window.location.hostname;
-        const wsUrl = `ws://${host}:${port}/websockify`;
-        
-        const connect = () => {
-            if (!window.RFB) { setTimeout(connect, 50); return; }
-            const rfb = new window.RFB(el, wsUrl, { credentials: { password: '' } });
-            rfb.scaleViewport = true; rfb.showDotCursor = true;
+    const log = (() => {
+        return (tag, ...args) => {
+            console.log(`[${tag}]`, ...args);
         };
-        connect();
-    });
+    })();
 
-    socket.once('app-error', ({ app: errApp, message }) => {
-        if (errApp !== app.id) return;
-        const el = document.getElementById(bodyId);
-        if (el) el.innerHTML = `
-            <div class="center-state">
-              <span style="font-size:32px;color:red;font-weight:bold">X</span>
-              <span>Process Failed</span>
-              <span style="font-weight:normal">${message}</span>
-            </div>`;
+    // ── Clock ──────────────────────────────────────────────────────────────────
+    function tick() {
+        const now = new Date();
+        const d = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+        const t = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+        document.getElementById('clock').textContent = `${d}  ${t}`;
+    }
+    tick(); setInterval(tick, 1000);
+
+    // ── App registry (WITH INLINE 16-BIT SVG ICONS) ────────────────────────────
+    const APPS = [
+        {
+            id: 'haskell-tui', name: 'Haskell Terminal', type: 'terminal',
+            // 16-bit terminal icon SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><rect x="2" y="2" width="28" height="28" fill="#111" stroke="#555" stroke-width="2"/><text x="16" y="22" fill="#0f0" font-family="monospace" font-weight="bold" font-size="20" text-anchor="middle">λ_</text></svg>`,
+            language: 'Haskell', description: 'Purely functional demos',
+            startEvent: 'start-haskell', stopEvent: 'stop-haskell',
+            window: { width: 800, height: 500 },
+        },
+        {
+            id: 'form-filler', name: 'FormFiller', type: 'vnc',
+            // 16-bit Clipboard SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect x="6" y="8" width="20" height="22" fill="#fff" stroke="#000" stroke-width="2"/><rect x="10" y="4" width="12" height="6" fill="#aaa" stroke="#000" stroke-width="2"/><line x1="10" y1="16" x2="22" y2="16" stroke="#000" stroke-width="2"/><line x1="10" y1="20" x2="22" y2="20" stroke="#000" stroke-width="2"/><line x1="10" y1="24" x2="18" y2="24" stroke="#000" stroke-width="2"/></svg>`,
+            language: 'Java / JavaFX', description: 'Automated form processing',
+            startEvent: 'start-form-filler', stopEvent: 'stop-form-filler', readyEvent: 'form-filler-started',
+            window: { width: 600, height: 700 },
+        },
+        {
+            id: 'labyrinth-madness', name: 'Labyrinth', type: 'vnc',
+            // 16-bit Maze block SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#000"/><path d="M4,4 L28,4 L28,28 L4,28 Z M8,8 L24,8 L24,12 L12,12 L12,24 L8,24 Z M16,16 L24,16 L24,24 L16,24 Z" fill="#00f" stroke="#0ff" stroke-width="1"/></svg>`,
+            language: 'Java / Processing', description: 'Maze generation',
+            startEvent: 'start-labyrinth-madness', stopEvent: 'stop-labyrinth-madness', readyEvent: 'labyrinth-madness-started',
+            window: { width: 608, height: 740 },
+        },
+        {
+            id: 'n-queens-omp', name: 'N-Queens', type: 'vnc',
+            // 16-bit Chess Crown SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#fff" stroke="#000" stroke-width="2"/><path d="M6,24 L26,24 L24,10 L20,16 L16,8 L12,16 L8,10 Z" fill="#000"/></svg>`,
+            language: 'C++ / OpenMP', description: 'Parallel solver',
+            startEvent: 'start-n-queens-omp', stopEvent: 'stop-n-queens-omp',readyEvent: 'n-queens-omp-started',
+            window: { width: 1000, height: 600 },
+        },
+        {
+            id: 'polygon-triangulation', name: 'Triangulation', type: 'vnc',
+            // 16-bit Triangle wireframe SVG
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#444"/><polygon points="16,4 28,26 4,26" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="4" x2="16" y2="26" stroke="#f00" stroke-width="2"/><line x1="16" y1="16" x2="4" y2="26" stroke="#0f0" stroke-width="2"/><line x1="16" y1="16" x2="28" y2="26" stroke="#00f" stroke-width="2"/></svg>`,
+            language: 'C++ / OpenGL', description: 'Polygon triangulation',
+            startEvent: 'start-polygon-triangulation', stopEvent: 'stop-polygon-triangulation', readyEvent: 'polygon-triangulation-started',
+            window: { width: 800, height: 600 },
+        },
+        {
+            id: 'dalui-scrape', name: 'Web Snatcher', type: 'iframe',
+            iconSvg: `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#500"/><circle cx="16" cy="16" r="12" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="2,2"/><circle cx="16" cy="16" r="6" fill="none" stroke="#fff" stroke-width="2"/><line x1="16" y1="0" x2="16" y2="32" stroke="#fff" stroke-width="2"/><line x1="0" y1="16" x2="32" y2="16" stroke="#fff" stroke-width="2"/><line x1="4" y1="4" x2="28" y2="28" stroke="#fff" stroke-width="2"/><line x1="4" y1="28" x2="28" y2="4" stroke="#fff" stroke-width="2"/></svg>`,
+            language: 'Chrome Extension', description: 'Content extractor',
+            url: 'snatcher-showcase.html', // Point to the new HTML file!
+            window: { width: 850, height: 550 },
+        },
+        {
+            id: 'about-me', name: 'About Me', type: 'iframe',
+            // The SVG gray box stays still, but the image gets the spin-on-hover class!
+            iconSvg: `<svg viewBox="0 0 32 32">
+                <rect width="32" height="32" fill="#bfbfbf" stroke="#000" stroke-width="2"/>
+                <image href="./img/face.png" x="2" y="2" width="28" height="28" class="spin-on-hover" style="image-rendering: pixelated;" />
+            </svg>`,
+            language: 'Profile', description: 'My resume and tech stack',
+            url: 'profile.html', 
+            window: { width: 650, height: 600 },
+        },
+        {
+            id: 'macintovps', name: 'Server Specs', type: 'iframe',
+            // 16-bit Retro Server Rack SVG
+            iconSvg: `<svg viewBox="0 0 32 32">
+                <rect width="32" height="32" fill="#bfbfbf" stroke="#000" stroke-width="2"/>
+                <rect x="6" y="4" width="20" height="24" fill="#333" stroke="#000" stroke-width="2"/>
+                <rect x="8" y="6" width="16" height="5" fill="#222" stroke="#111" stroke-width="1"/>
+                <rect x="8" y="13" width="16" height="5" fill="#222" stroke="#111" stroke-width="1"/>
+                <rect x="8" y="20" width="16" height="5" fill="#222" stroke="#111" stroke-width="1"/>
+                <circle cx="11" cy="8.5" r="1" fill="#0f0"/>
+                <circle cx="14" cy="8.5" r="1" fill="#f00"/>
+                <circle cx="11" cy="15.5" r="1" fill="#0f0"/>
+                <circle cx="14" cy="15.5" r="1" fill="#0f0"/>
+                <circle cx="11" cy="22.5" r="1" fill="#0f0"/>
+                <circle cx="14" cy="22.5" r="1" fill="#f00"/>
+            </svg>`,
+            language: 'Debian 12', description: 'MacintoVPS Architecture',
+            url: 'server.html', // Points to the new file below
+            window: { width: 850, height: 650 },
+        },
+    ];
+
+    const openWindows = new Map();
+
+    function markRunning(id, running) {
+        const dot = document.querySelector(`[data-id="${id}"] .app-dot`);
+        if (dot) dot.classList.toggle('hidden', !running);
+    }
+
+    function onWindowClose(app) {
+        socket.emit(app.stopEvent);
+        openWindows.delete(app.id);
         markRunning(app.id, false);
+    }
+
+    // ── Terminal app ───────────────────────────────────────────────────────────
+    function launchTerminal(app) {
+        const bodyId = `term-${app.id}`;
+        const win = new WinBox(app.name, {
+            width: `${app.window.width}px`, height: `${app.window.height}px`,
+            x: 'center', y: 'center',
+            html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;padding:4px"></div>`,
+            onclose() { onWindowClose(app); term?.dispose(); return false; },
+        });
+        openWindows.set(app.id, win);
+
+        let term;
+        setTimeout(() => {
+            const el = document.getElementById(bodyId);
+            if (!el) return;
+            term = new Terminal({
+                theme: { background:'#000', foreground:'#ccc', cursor:'#0f0' }, // Classic UNIX colors
+                fontFamily: 'monospace',
+                fontSize: 14, cursorBlink: true, cursorStyle: 'block',
+            });
+            const fit = new FitAddon.FitAddon();
+            term.loadAddon(fit);
+            term.open(el);
+            fit.fit();
+            new ResizeObserver(() => fit.fit()).observe(el);
+            term.onData(data => socket.emit('terminal-input', data));
+            term.onResize(({ cols, rows }) => socket.emit('terminal-resize', { cols, rows }));
+            socket.on('terminal-output', data => term.write(data));
+            socket.emit(app.startEvent);
+        }, 60);
+    }
+
+    // ── VNC app ───────────────────────────────────────────────────────────────
+    function launchVnc(app) {
+        const bodyId = `vnc-${app.id}`;
+        const win = new WinBox(app.name, {
+            width: `${app.window.width}px`, height: `${app.window.height}px`,
+            x: 'center', y: 'center',
+            html: `<div id="${bodyId}" style="width:100%;height:100%;background:#bfbfbf;">
+                    <div class="center-state">
+                      <div class="spinner"></div>
+                      <span>Connecting via RFB...</span>
+                    </div>
+                  </div>`,
+            onclose() { onWindowClose(app); return false; },
+        });
+        openWindows.set(app.id, win);
+        socket.emit(app.startEvent);
+
+        socket.once(app.readyEvent, ({ port }) => {
+            const el = document.getElementById(bodyId);
+            if (!el) return;
+            el.innerHTML = '';
+            const host = window.location.hostname;
+            const wsUrl = `ws://${host}:${port}/websockify`;
+            
+            const connect = () => {
+                if (!window.RFB) { setTimeout(connect, 50); return; }
+                const rfb = new window.RFB(el, wsUrl, { credentials: { password: '' } });
+                rfb.scaleViewport = true; rfb.showDotCursor = true;
+            };
+            connect();
+        });
+
+        socket.once('app-error', ({ app: errApp, message }) => {
+            if (errApp !== app.id) return;
+            const el = document.getElementById(bodyId);
+            if (el) el.innerHTML = `
+                <div class="center-state">
+                  <span style="font-size:32px;color:red;font-weight:bold">X</span>
+                  <span>Process Failed</span>
+                  <span style="font-weight:normal">${message}</span>
+                </div>`;
+            markRunning(app.id, false);
+        });
+    }
+
+    // ── Static info card ──────────────────────────────────────────────────────
+    function launchIframe(app) {
+        if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+        markRunning(app.id, true);
+        
+        const win = new WinBox(app.name, {
+            width: `${app.window.width}px`, height: `${app.window.height}px`,
+            x: 'center', y: 'center',
+            url: app.url, // WinBox natively loads the URL into an iframe!
+            onclose() { 
+                openWindows.delete(app.id);
+                markRunning(app.id, false); 
+                return false; 
+            },
+        });
+        openWindows.set(app.id, win);
+    }
+
+    // ── Launch dispatcher ──────────────────────────────────────────────────────
+    function launchApp(app) {
+        if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+        markRunning(app.id, true);
+        if (app.type === 'terminal') launchTerminal(app);
+        else if (app.type === 'iframe') launchIframe(app);
+        else launchVnc(app);
+    }
+
+    // ── Expose Launcher to Iframes ─────────────────────────────────────────────
+    window.openDesktopApp = function(appId) {
+        const app = APPS.find(a => a.id === appId);
+        if (app) launchApp(app);
+    };
+
+    // ── Build Dock ─────────────────────────────────────────────────────────────
+    const dock = document.getElementById('dock');
+    APPS.forEach(app => {
+        const el = document.createElement('div');
+        el.className = 'app-icon';
+        el.dataset.id = app.id;
+        el.innerHTML = `
+            <div class="app-tooltip">${app.name}</div>
+            <div class="app-icon-shell">
+                ${app.iconSvg}
+            </div>
+            <div class="app-dot hidden"></div>`;
+        el.addEventListener('click', () => launchApp(app));
+        dock.appendChild(el);
     });
-}
 
-// ── Static info card ──────────────────────────────────────────────────────
-function launchInfo(app) {
-    if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
-    markRunning(app.id, true);
-    const win = new WinBox(app.name, {
-        width: `${app.window.width}px`, height: `${app.window.height}px`,
-        x: 'center', y: 'center',
-        html: `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px;color:#000;text-align:center">
-            <div style="width:64px;height:64px;border:2px solid #000;background:#fff;padding:8px">${app.iconSvg}</div>
-            <div style="font-size:20px;font-weight:bold">${app.name}</div>
-            <div style="font-size:12px;font-weight:bold;text-transform:uppercase;border-bottom:1px solid #000">${app.language}</div>
-            <div style="font-size:14px;max-width:420px;line-height:1.4">${app.description}</div>
-            <a href="${app.github}" target="_blank" rel="noopener" style="margin-top:16px;background:#aaaaaa;color:#000;border-top:2px solid #fff;border-left:2px solid #fff;border-bottom:2px solid #555;border-right:2px solid #555;padding:6px 16px;font-size:13px;font-weight:bold;text-decoration:none">Inspect on GitHub</a>
-        </div>`,
-        onclose() { onWindowClose(app); return false; },
+    window.addEventListener('DOMContentLoaded', () => {
+        // Check if the 'hasVisited' key exists in the browser's local storage
+        if (!localStorage.getItem('hasVisited')) {
+            
+            // If it doesn't exist, set it so this never runs again for this user
+            localStorage.setItem('hasVisited', 'true');
+            
+            // Find the About Me app in your registry
+            const profileApp = APPS.find(app => app.id === 'about-me');
+            
+            if (profileApp) {
+                // Add a slight 500ms delay so the user sees the empty desktop first, 
+                // making the window pop-up feel more deliberate and "OS-like"
+                setTimeout(() => {
+                    launchApp(profileApp);
+                }, 500);
+            }
+        }
     });
-    openWindows.set(app.id, win);
-    socket.emit(app.startEvent);
-}
-
-// ── Launch dispatcher ──────────────────────────────────────────────────────
-function launchApp(app) {
-    if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
-    markRunning(app.id, true);
-    if (app.type === 'terminal') launchTerminal(app);
-    else if (app.type === 'info') launchInfo(app);
-    else launchVnc(app);
-}
-
-// ── Build Dock ─────────────────────────────────────────────────────────────
-const dock = document.getElementById('dock');
-APPS.forEach(app => {
-    const el = document.createElement('div');
-    el.className = 'app-icon';
-    el.dataset.id = app.id;
-    el.innerHTML = `
-        <div class="app-tooltip">${app.name}</div>
-        <div class="app-icon-shell">
-            ${app.iconSvg}
-        </div>
-        <div class="app-dot hidden"></div>`;
-    el.addEventListener('click', () => launchApp(app));
-    dock.appendChild(el);
-});
 </script>
 <script>
     // Fetches real hardware data from NestJS backend(fanspeed)

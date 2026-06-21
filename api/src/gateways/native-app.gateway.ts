@@ -65,8 +65,22 @@ const GUI_CONFIGS: Record<string, AppConfig> = {
 @WebSocketGateway({ cors: true })
 export class NativeAppGateway implements OnGatewayDisconnect {
   constructor(private readonly sessionPool: SessionPoolService) {}
+  
+  private activeIps = new Map<string, string>(); // Maps IP -> Client ID
 
+  handleConnection(client: Socket) {
+    const ip = client.handshake.address;
+    if (this.activeIps.has(ip)) {
+      client.emit('error', 'You already have an active session.');
+      client.disconnect();
+      return;
+    }
+    this.activeIps.set(ip, client.id);
+  }
   handleDisconnect(client: Socket) {
+    const ip = client.handshake.address;
+    this.activeIps.delete(ip);
+    
     if (client.data.ptyProcess) {
       client.data.ptyProcess.kill();
       client.data.ptyProcess = null;

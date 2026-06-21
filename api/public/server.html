@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MacintoVPS Server Info</title>
+    <style>
+        body {
+            background-color: #bfbfbf;
+            color: #000000;
+            font-family: "Times New Roman", Times, serif;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .container {
+            border: 3px inset #ffffff;
+            padding: 20px;
+            background-color: #d3d3d3;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3 {
+            border-bottom: 2px solid #555;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+
+        h1 { margin-top: 0; }
+
+        /* Terminal style for ASCII Art */
+        pre.ascii {
+            background-color: #000000;
+            color: #00ff00;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 8px; /* Small to ensure the art fits */
+            line-height: 9px;
+            padding: 15px;
+            overflow-x: auto;
+            border: 3px inset #555;
+            white-space: pre;
+        }
+
+        /* 90s style for code blocks */
+        pre.code {
+            background-color: #e0e0e0;
+            border: 2px inset #ffffff;
+            padding: 10px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        code {
+            background-color: #e0e0e0;
+            font-family: "Courier New", Courier, monospace;
+            padding: 2px 4px;
+        }
+
+        ul {
+            line-height: 1.6;
+        }
+
+        .emoji {
+            font-style: normal;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1><span class="emoji">🍏</span> MacintoVPS Server Guide</h1>
+        <p><i>Breathing new life into a classic. Turning a vintage 2010 MacBook White Unibody into a modern, headless, Debian server. Yes this project is running on it! Or at least trying to.</i></p>
+
+<pre class="ascii">
+                 #%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%%#                 
+                #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@% %%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%                
+                %%%@@@@@@%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%@@@@@@@@@@@@@@@@@@@@@@@%@@@@@@@@@@@@@@@@@@@@@@@@%                
+                %@@@@## %=-:**=#+-#+=*+=#-==+#==##########################################-#=*+#-+=+:-+-+=++-##+#%@@@@%                         
+                %@@@@=                                                                                           #@@@@%                
+                %%%%%=                           .   .  .    . ... ..  ..  .                                     #@@@@%
+                %%%%%=                                    .  . .-+#########*+-.:.     ..                         #@@@@%
+                %%%%%=                                    ..=###################*-.  . .                         #@@@@%
+                %%%%%=                                  .:*#####*-..    .  .:+#####=.. .                         #@@@@%
+                %%%%%=                                ..=####*:        ..  .  .=####*...                         #@@@@%
+                %%%%%=                              .:.+###:.  .  .         .   .*####:                          #@@@@%
+                %%%%%=                                .*##-...   .     ....     . .*#+.:.                        #%%%%%
+                %%%%%=                              ..*##:.         .-*+:..--....  -##=..                        #%%%%%
+                %%%%%=                              .=##-...    .. :+.    .. .     .*#+..                        #%%%%%
+                %%%%%=                              .+#+.      ...:* .   . .. .    *##.                          #%%%%%
+                %%%%%=                              .+#=         .=:     ..        .##-..                        #%%%%%
+                %%%%%=                              .+#=..       .=* .   ....   -#=..                            #%%%%%
+                %%%%%=                             .+#=   .    ..:*= .  .:.   ...-#=.. .                         #%%%%%
+                %%%%%=                              .=#*.   .    .-.*+    .. .  :**: .                           #%%%%%
+                %%%%%=                              -#*:.   ..   ..:-+*=-.:-=*#+:. .  .                          #%%%%%
+                %%%%%=                              ..*#+:.    .   . ..=::::..  . . . . .                        #%%%%%
+                %%%%%=                               .*##=...              .                                     #%%%%%
+                %%%%%=                                :*#*.. .   .     .  .    .                                 #%%%%%
+                %%%%%=                              .   .##*. .  ..       . .   .                                #%%%%%
+                %%%%%=                                  ..=#*-.         .   .  . . ..   .                        #%%%%%
+                %%%%%=                                  .  :*#=:. .         .       .                            #%%%%%
+                %%%%%=                                    ....*#* ...   ..      .   .                            #%%%%%
+                %%%%%=                                ...      .:+*+:.        ..        .                        #%%%%%
+                %%%%%=                              ..             .:-:.    ..                                   #%%%%%                
+                %%%%%=                                                                                           #%%%%% 
+                %%%%%=          .* . : ..  #+  += =-= --.        -    .      :  ..   =++-+++:  .  .              #%%%%%                
+                %%%%%=        .   ..  :::-- ..:::- ..::..:=.::  ::- -   ....  ....:.:.:.:........---:  .:        #%%%%%                
+                %%%%%*.......++++++=+=++++++++++++++++++++++=++=++++++++++++++++=+=+++++++++++++++++=+++++   ....%%%%%%                
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  MacBook %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%            
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#                
+               @*#%%%%%%%%%%%%#%%%%%%%%%%%%%%%%%%%#%%%%%#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%###@               
+          @@%@@@##**###*********#*#***####*****##****##****###****###########*######*##%##***####*#####################@@%%%@          
+     @%%%%%%@@@@#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*******************************##******%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@@@@%%%%%%      
+   %@@@@@@@@@@@@%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%@@@@@@@@@%#%%%%%%%%%%%%%%%%%%%@@@@@@@@@%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%   
+   %@@%%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%%%%@@@@@@@%   
+    @%#################################%###%#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#%%%%%%####%%#%%%###%%#   
+     +=------------------------------------------------------------------------------------------------:-:::--:--::--:::::::::::-+     
+</pre>
+
+        <h2><span class="emoji">⚙️</span> Specifications</h2>
+        <p>This server leverages the durable hardware of the late polycarbonate era, upgraded with modern storage and memory to handle server workloads efficiently.</p>
+        <ul>
+            <li><span class="emoji">💻</span> <b>Machine:</b> Apple MacBook "White Unibody" (Mid-2010)</li>
+            <li><span class="emoji">🧠</span> <b>Processor:</b> Intel&reg; Core&trade; 2 Duo (2.4 GHz)</li>
+            <li><span class="emoji">🐏</span> <b>Memory:</b> 10 GB DDR3 RAM</li>
+            <li><span class="emoji">💾</span> <b>Storage:</b> 240 GB Solid State Drive (SSD)</li>
+            <li><span class="emoji">🐧</span> <b>Operating System:</b> Debian 12 (Bookworm)</li>
+            <li><span class="emoji">🌐</span> <b>Networking:</b> Tailscale (Mesh VPN) + Wake-on-LAN capability</li>
+        </ul>
+
+        <h2><span class="emoji">💽</span> Partition Schema</h2>
+        <p>To ensure Docker has plenty of room to operate, the storage has been specifically partitioned.</p>
+<pre class="code">Filesystem                       Size  Used Avail Use% Mounted on
+/dev/mapper/macintovps--vg-root   43G  6.3G   35G  16% /
+/dev/mapper/macintovps--vg-var   108G   28G   76G  27% /var
+/dev/mapper/macintovps--vg-tmp   1.8G  2.5M  1.7G   1% /tmp
+/dev/sda2                        456M  108M  323M  26% /boot
+/dev/mapper/macintovps--vg-home   49G  2.2G   44G   5% /home
+/dev/sda1                        511M  5.9M  506M   2% /boot/efi</pre>
+        <p>💡 <b>Why is <code>/var</code> so large?</b><br>
+        In Docker, all images, containers, and volumes are stored by default in <code>/var/lib/docker</code>. Allocating <b>108GB</b> specifically to the <code>/var</code> partition prevents Docker from filling up the root filesystem, ensuring the host OS remains stable and responsive.</p>
+
+        <h2><span class="emoji">🛠️</span> Server Configuration Guide</h2>
+        <p>Below is the step-by-step breakdown of the commands used to configure the MacintoVPS from a fresh Debian install to a headless home server.</p>
+
+        <h3>1. Initial Setup &amp; Drivers</h3>
+        <p>First, ensure the system is up to date and install the proprietary Broadcom drivers required for the MacBook's Wi-Fi card.</p>
+<pre class="code"># Update and upgrade packages
+sudo apt update && sudo apt upgrade -y
+
+# Install MacBook Wi-Fi drivers
+sudo apt install broadcom-sta-dkms -y</pre>
+
+        <h3>2. User Management &amp; Essential Tools</h3>
+        <p>Install basic networking and monitoring tools, and ensure your user has the correct <code>sudo</code> privileges.</p>
+<pre class="code"># Enter as superuser
+su -
+
+# Install sudo and essential tools
+apt update && apt install sudo curl wget git htop tmux -y
+
+# Add your user to the sudo group (replace 'ur_user' with your actual username)
+usermod -aG sudo ur_user
+
+# Exit root session
+exit</pre>
+
+        <h3>3. Docker Installation</h3>
+        <p>Install the Docker engine using the official convenience script.</p>
+<pre class="code"># Download and execute the Docker install script
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh</pre>
+
+        <h3>4. Headless Laptop Tweaks (Power &amp; Lid Management)</h3>
+        <p>Since this is a laptop acting as a server, it needs to stay awake when the lid is closed and turn off the screen to save power and prevent burn-in.</p>
+        <p><b>Lid Closing Behavior:</b></p>
+<pre class="code"># Edit logind configuration
+sudo nano /etc/systemd/logind.conf
+
+# ✏️ ACTION: Find '#HandleLidSwitch=suspend' and change it to:
+# HandleLidSwitch=ignore
+
+# Restart the service to apply changes
+sudo systemctl restart systemd-logind</pre>
+
+        <p><b>Screen Blanking &amp; Power Saver:</b></p>
+<pre class="code"># Edit console setup
+sudo nano /etc/default/console-setup
+
+# ✏️ ACTION: Add the following variables at the bottom:
+# SCREEN_BLANK=1
+# POWERDOWN_TIME=2
+
+# Edit GRUB configuration
+sudo nano /etc/default/grub
+
+# ✏️ ACTION: Modify the CMDLINE default variable to:
+# GRUB_CMDLINE_LINUX_DEFAULT="quiet consoleblank=60"
+
+# Update GRUB bootloader
+sudo update-grub
+
+# Save changes and perform a final reboot
+sudo systemctl restart console-setup 
+sudo apt update && sudo apt full-upgrade -y 
+sudo reboot</pre>
+
+        <h3>5. Remote Access &amp; Networking</h3>
+        <p>Set up a secure mesh VPN to access the server from anywhere, and enable Wake-on-LAN to turn the server on remotely.</p>
+        <p><b>Tailscale VPN:</b></p>
+<pre class="code"># Install and authenticate Tailscale
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up</pre>
+
+        <p><b>Wake-on-LAN (WoL):</b></p>
+<pre class="code"># Install ethtool
+sudo apt update && sudo apt install ethtool -y
+
+# Enable WoL on the ethernet card (enp0s9)
+sudo ethtool -s enp0s9 wol g
+
+# Make WoL persistent across reboots by creating a systemd service
+sudo nano /etc/systemd/system/wol.service</pre>
+        
+        <p><i>Add the following configuration to the <code>wol.service</code> file:</i></p>
+<pre class="code">[Unit]
+Description=Enable Wake-on-LAN
+Requires=network.target
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/ethtool -s enp0s9 wol g
+
+[Install]
+WantedBy=multi-user.target</pre>
+
+        <p><i>Activate the service:</i></p>
+<pre class="code"># Enable and start the WoL service
+sudo systemctl enable wol.service
+sudo systemctl start wol.service</pre>
+
+
+</body>
+</html>
