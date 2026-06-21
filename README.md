@@ -1,6 +1,6 @@
 # Portfolio OS
 
-![current-state-of-the-webapp](./docs/image.png)
+![current-state-of-the-webapp](./docs/image2.png)
 
 An old OS web desktop that runs my programming projects as live, interactive windows in the browser — no installation required for visitors. Each project launches in its own floating window with native controls (PTY terminal, VNC stream, or static card).
 
