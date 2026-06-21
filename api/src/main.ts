@@ -4,7 +4,8 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
+  
+  app.setGlobalPrefix('api');
   // 1. Configure the WebSocket Proxy
   const vncProxy = createProxyMiddleware({
     target: 'http://127.0.0.1', 

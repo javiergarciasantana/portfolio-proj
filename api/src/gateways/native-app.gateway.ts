@@ -69,22 +69,35 @@ export class NativeAppGateway implements OnGatewayDisconnect {
   private activeIps = new Map<string, string>(); // Maps IP -> Client ID
 
   handleConnection(client: Socket) {
-    const ip = client.handshake.address;
+    // 1. Get the REAL IP from Cloudflare (fallback to standard IP if testing locally)
+    const ip = (client.handshake.headers['cf-connecting-ip'] as string) || client.handshake.address;
+    
+    // 2. If the IP is already in the map (e.g. you refreshed the page), 
+    // we let you in and just overwrite the old ghost session ID.
     if (this.activeIps.has(ip)) {
-      client.emit('error', 'You already have an active session.');
-      client.disconnect();
-      return;
+      console.log(`[Session] IP ${ip} reconnected (Page Refresh). Overwriting ghost session.`);
+    } else {
+      console.log(`[Session] New IP connected: ${ip}`);
     }
+    
+    // 3. Register the newly refreshed tab as the active owner of this IP
     this.activeIps.set(ip, client.id);
   }
+
   handleDisconnect(client: Socket) {
-    const ip = client.handshake.address;
-    this.activeIps.delete(ip);
+    const ip = (client.handshake.headers['cf-connecting-ip'] as string) || client.handshake.address;
     
+    // ONLY delete the IP if the disconnecting client is the CURRENT active one.
+    // This stops the old ghost session from deleting your newly refreshed session's IP!
+    if (this.activeIps.get(ip) === client.id) {
+      this.activeIps.delete(ip);
+      console.log(`[Session] IP completely disconnected: ${ip}`);
+    }
+
+    // ... your existing PTY and SessionPool cleanup code below ...
     if (client.data.ptyProcess) {
       client.data.ptyProcess.kill();
       client.data.ptyProcess = null;
-      console.log(`[PTY] killed on disconnect  client=${client.id}`);
     }
     this.sessionPool.releaseSlot(client.id).catch(err =>
       console.error(`[Pool] releaseSlot error  client=${client.id}  ${err.message}`),

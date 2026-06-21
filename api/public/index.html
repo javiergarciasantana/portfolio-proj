@@ -196,6 +196,119 @@
             margin: 2px !important;
         }
 
+        /* ── Start Menu Dropdown ────────────────────────────────────────────── */
+        .dropdown-container {
+            position: relative;
+        }
+
+        #start-button:active {
+            border-top: 2px solid var(--nx-dark-gray) !important;
+            border-left: 2px solid var(--nx-dark-gray) !important;
+            border-bottom: 2px solid var(--nx-light) !important;
+            border-right: 2px solid var(--nx-light) !important;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            background: var(--nx-gray);
+            border-top: 2px solid var(--nx-light);
+            border-left: 2px solid var(--nx-light);
+            border-bottom: 2px solid var(--nx-black);
+            border-right: 2px solid var(--nx-black);
+            min-width: 180px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            z-index: 100001; /* Stays above WinBox windows */
+        }
+
+        .dropdown-menu.hidden {
+            display: none;
+        }
+
+        .menu-header {
+            background: var(--nx-black);
+            color: var(--nx-light);
+            padding: 4px 8px;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .dropdown-menu .menu-item {
+            color: var(--nx-black);
+            text-decoration: none;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+
+        .dropdown-menu .menu-item:hover {
+            background: var(--nx-light);
+            border: 1px dotted var(--nx-black);
+        }
+
+        .menu-separator {
+            height: 2px;
+            background: var(--nx-dark-gray);
+            border-bottom: 1px solid var(--nx-light);
+            margin: 4px 0;
+        }
+
+        /* ── Mobile Responsiveness (The "Kinda OK" Fix) ─────────────────────── */
+        @media (max-width: 768px) {
+
+            .hide-on-mobile {
+                display: none !important;
+            }
+            /* Hide the complex hardware widgets to save space on the menu bar */
+            .bar-right #mac-cpu-widget,
+            .bar-right #mac-fan-widget {
+                display: none !important;
+            }
+
+            /* Move the Dock from the right side to the bottom */
+            #dock {
+                top: auto;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100vw;
+                height: 74px;
+                flex-direction: row;      /* Horizontal layout */
+                justify-content: center;
+                border-left: none;
+                border-top: 2px solid var(--nx-light);
+                padding: 0 10px;
+                overflow-x: auto;         /* Allow scrolling if there are many apps */
+            }
+
+            /* Stop the desktop area above the bottom dock */
+            #desktop {
+                right: 0;
+                bottom: 74px;
+            }
+
+            /* Shrink app icons slightly so they fit better on small screens */
+            .app-icon-shell {
+                width: 44px;
+                height: 44px;
+            }
+            .app-icon-shell svg {
+                width: 28px;
+                height: 28px;
+            }
+            /* Force windows to the very front on mobile so they cover the UI */
+            .winbox {
+                z-index: 999999 !important;
+            }
+        }
+
         /* ── Loading / Error states ──────────────────────────────────────────── */
         .center-state {
             height: 100%; display: flex; flex-direction: column;
@@ -215,10 +328,23 @@
 <div id="menubar">
     
     <div class="bar-left" style="display: flex; gap: 15px; align-items: center;">
-        <span class="bar-logo" style="font-weight: bold; color: white;">My Portfolio OS</span>
-        <span class="bar-item" style="color: #cdd6f4;">Javier</span>
-        <span class="bar-item" style="color: #cdd6f4;">García</span>
-        <span class="bar-item" style="color: #cdd6f4;">Santana</span>
+        
+        <div class="dropdown-container">
+            <button id="start-button" class="bar-item" style="display: flex; gap: 6px; align-items: center; background: #bfbfbf; border-top: 2px solid #fff; border-left: 2px solid #fff; border-bottom: 2px solid #555; border-right: 2px solid #555; padding: 2px 8px; cursor: pointer; outline: none;">
+                <span style="font-weight: bold; color: white;">My Portfolio OS</span>
+            </button>
+            
+            <div id="start-menu" class="dropdown-menu hidden">
+                <div class="menu-header">WORKSPACE</div>
+                <a href="https://github.com/javiergarciasantana" target="_blank" class="menu-item">GitHub Profile</a>
+                <a href="www.linkedin.com/in/javier-garcia-santana-362691302" target="_blank" class="menu-item">LinkedIn Network</a>
+                <div class="menu-separator"></div>
+                <a href="mailto:javiergs0703@gmail.com" class="menu-item">Send Email</a>
+            </div>
+        </div>        
+        <span class="bar-item hide-on-mobile" style="color: #cdd6f4;">Javier</span>
+        <span class="bar-item hide-on-mobile" style="color: #cdd6f4;">García</span>
+        <span class="bar-item hide-on-mobile" style="color: #cdd6f4;">Santana</span>
     </div>
     
     <div class="bar-right">
@@ -372,10 +498,18 @@
 
     // ── Terminal app ───────────────────────────────────────────────────────────
     function launchTerminal(app) {
-        const bodyId = `term-${app.id}`;
+        if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+        markRunning(app.id, true);
+
+        // --- Mobile Detection & Sizing ---
+        const isMobile = window.innerWidth <= 768;
+        
         const win = new WinBox(app.name, {
-            width: `${app.window.width}px`, height: `${app.window.height}px`,
-            x: 'center', y: 'center',
+          width: isMobile ? null : `${app.window.width}px`,
+          height: isMobile ? null : `${app.window.height}px`,
+          x: isMobile ? null : 'center',
+          y: isMobile ? null : 'center',
+          max: isMobile,
             html: `<div id="${bodyId}" style="width:100%;height:100%;background:#000;padding:4px"></div>`,
             onclose() { onWindowClose(app); term?.dispose(); return false; },
         });
@@ -404,10 +538,21 @@
 
     // ── VNC app ───────────────────────────────────────────────────────────────
     function launchVnc(app) {
+        if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
+        markRunning(app.id, true);
+
+        // --- Mobile Detection & Sizing ---
+        const isMobile = window.innerWidth <= 768;
+
         const bodyId = `vnc-${app.id}`;
         const win = new WinBox(app.name, {
-            width: `${app.window.width}px`, height: `${app.window.height}px`,
-            x: 'center', y: 'center',
+            width: isMobile ? null : `${app.window.width}px`, 
+            height: isMobile ? null : `${app.window.height}px`,
+            x: isMobile ? null : 'center',
+            y: isMobile ? null : 'center',
+            
+            // This forces the window to open already maximized on mobile
+            max: isMobile,
             html: `<div id="${bodyId}" style="width:100%;height:100%;background:#bfbfbf;">
                     <div class="center-state">
                       <div class="spinner"></div>
@@ -456,10 +601,18 @@
         if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
         markRunning(app.id, true);
         
+        // --- Mobile Detection & Sizing ---
+        const isMobile = window.innerWidth <= 768;
+        
         const win = new WinBox(app.name, {
-            width: `${app.window.width}px`, height: `${app.window.height}px`,
-            x: 'center', y: 'center',
-            url: app.url, // WinBox natively loads the URL into an iframe!
+            width: isMobile ? null : `${app.window.width}px`, 
+            height: isMobile ? null : `${app.window.height}px`,
+            x: isMobile ? null : 'center',
+            y: isMobile ? null : 'center',
+            
+            // This forces the window to open already maximized on mobile
+            max: isMobile,
+            url: app.url, 
             onclose() { 
                 openWindows.delete(app.id);
                 markRunning(app.id, false); 
@@ -468,7 +621,6 @@
         });
         openWindows.set(app.id, win);
     }
-
     // ── Launch dispatcher ──────────────────────────────────────────────────────
     function launchApp(app) {
         if (openWindows.has(app.id)) { openWindows.get(app.id).focus(); return; }
@@ -483,6 +635,23 @@
         const app = APPS.find(a => a.id === appId);
         if (app) launchApp(app);
     };
+    
+    // ── Start Menu Logic ───────────────────────────────────────────────────────
+    const startBtn = document.getElementById('start-button');
+    const startMenu = document.getElementById('start-menu');
+
+    // Toggle menu on click
+    startBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startMenu.classList.toggle('hidden');
+    });
+
+    // Close menu if clicking anywhere outside of it
+    document.addEventListener('click', (e) => {
+        if (!startMenu.contains(e.target) && !startMenu.classList.contains('hidden')) {
+            startMenu.classList.add('hidden');
+        }
+    });
 
     // ── Build Dock ─────────────────────────────────────────────────────────────
     const dock = document.getElementById('dock');
