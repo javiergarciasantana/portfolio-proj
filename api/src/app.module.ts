@@ -3,7 +3,6 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { SessionModule } from './sessions/session.module';
 import { HardwareModule } from './hardware/hardware.module'
-import { NativeAppGateway } from './gateways/native-app.gateway';
 
 @Module({
   imports: [
@@ -13,6 +12,6 @@ import { NativeAppGateway } from './gateways/native-app.gateway';
     SessionModule,
     HardwareModule,
   ],
-  providers: [NativeAppGateway],
+  providers: [],
 })
 export class AppModule {}

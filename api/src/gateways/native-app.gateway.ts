@@ -235,4 +235,12 @@ export class NativeAppGateway implements OnGatewayDisconnect {
       console.log(`[PTY] stopped  client=${client.id}`);
     }
   }
+
+  //--------Getters-----------------------------------
+  public getActiveSessions() {
+    return Array.from(this.activeIps.entries()).map(([ip, clientId]) => ({
+      ip,
+      clientId
+    }));
+  }
 }
