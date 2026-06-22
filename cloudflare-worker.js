@@ -1,0 +1,89 @@
+/**
+ * Cloudflare Worker — fallback maintenance page
+ *
+ * Deploy: Cloudflare dashboard → Workers & Pages → Create Worker → paste this file → Save & Deploy.
+ * Then add a Route (or use the Worker on your zone) matching your domain.
+ *
+ * How it works:
+ *   1. Worker forwards every request to your Cloudflare Tunnel origin.
+ *   2. If the tunnel is down (network error) OR returns 5xx, serves MAINTENANCE_HTML.
+ *   3. Otherwise passes the response through unchanged.
+ *
+ * Free tier: 100,000 requests/day — more than enough for a portfolio.
+ */
+
+const MAINTENANCE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Javier García Santana — Server Offline</title>
+    <meta name="robots" content="noindex, nofollow">
+    <style>
+        :root { --bg:#2b2b2b; --gray:#aaaaaa; --dark-gray:#555555; --accent:#000080; --win-body:#bfbfbf; }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        body{width:100vw;height:100vh;background:var(--bg);background-image:radial-gradient(#444 15%,transparent 16%),radial-gradient(#444 15%,transparent 16%);background-size:4px 4px;background-position:0 0,2px 2px;font-family:Helvetica,Arial,sans-serif;-webkit-font-smoothing:none;display:flex;align-items:center;justify-content:center;}
+        .window{background:var(--win-body);border-top:2px solid #fff;border-left:2px solid #fff;border-right:2px solid #333;border-bottom:2px solid #333;width:480px;max-width:94vw;box-shadow:4px 4px 0 #000;}
+        .titlebar{background:var(--accent);color:#fff;font-size:13px;font-weight:bold;padding:4px 8px;display:flex;align-items:center;gap:8px;user-select:none;}
+        .titlebar-dot{width:12px;height:12px;background:var(--win-body);border-top:1px solid #fff;border-left:1px solid #fff;border-right:1px solid #333;border-bottom:1px solid #333;}
+        .body{padding:24px;}
+        .icon{font-size:40px;display:block;margin-bottom:12px;}
+        h1{font-size:16px;font-weight:bold;margin-bottom:10px;color:#000;}
+        p{font-size:13px;line-height:1.6;color:#222;margin-bottom:10px;}
+        hr{border:none;border-top:1px solid var(--dark-gray);margin:16px 0;}
+        .statusbar{background:var(--gray);border-top:1px solid var(--dark-gray);padding:4px 8px;font-size:11px;color:#000;display:flex;justify-content:space-between;}
+        a{color:var(--accent);}
+        .blink{animation:blink 1.2s step-end infinite;}
+        @keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="titlebar">
+            <div class="titlebar-dot"></div>
+            System Alert — javiergarciasantana.com
+        </div>
+        <div class="body">
+            <span class="icon">🖥️</span>
+            <h1>The home server is currently offline</h1>
+            <p>This portfolio runs on a physical machine at home. The power probably went out, or I'm doing maintenance. It should be back shortly.</p>
+            <p>In the meantime, you can find my work on <a href="https://github.com/javiergarciasantana" target="_blank" rel="noopener">GitHub</a>.</p>
+            <hr>
+            <p style="font-size:11px;color:#555;"><span class="blink">_</span>&nbsp;Trying to reconnect… refresh this page in a few minutes.</p>
+        </div>
+        <div class="statusbar">
+            <span>javiergarciasantana.com</span>
+            <span id="clock"></span>
+        </div>
+    </div>
+    <script>
+        const c = document.getElementById('clock');
+        const tick = () => c.textContent = new Date().toLocaleTimeString();
+        tick(); setInterval(tick, 1000);
+    </script>
+</body>
+</html>`;
+
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  try {
+    const response = await fetch(request);
+
+    if (response.status >= 500) {
+      return new Response(MAINTENANCE_HTML, {
+        status: 503,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
+    return response;
+  } catch (_) {
+    return new Response(MAINTENANCE_HTML, {
+      status: 503,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
+  }
+}

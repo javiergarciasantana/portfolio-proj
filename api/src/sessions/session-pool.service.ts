@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as net from 'net';
 
@@ -34,6 +34,7 @@ export interface Slot {
   status: 'free' | 'starting' | 'running' | 'stopping';
   appId: string | null;
   clientId: string | null;
+  startedAt: number | null;
   procs: SlotProcs;
 }
 
@@ -45,6 +46,7 @@ export interface PoolStatus {
     status: string;
     appId: string | null;
     clientId: string | null;
+    startedAt: number | null;
     display: number;
     wsPort: number;
     pids: { xvfb: number | null; app: number | null; vnc: number | null; ws: number | null };
@@ -52,8 +54,10 @@ export interface PoolStatus {
 }
 
 @Injectable()
-export class SessionPoolService implements OnModuleDestroy {
+export class SessionPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SessionPoolService.name);
+  private readonly sessionTimeoutMs = parseInt(process.env.SESSION_TIMEOUT_MS ?? '1200000', 10);
+  private timeoutTimer: NodeJS.Timeout | null = null;
 
   private slots: Slot[] = Array.from({ length: GUI_CAP }, (_, n) => ({
     n,
@@ -63,8 +67,14 @@ export class SessionPoolService implements OnModuleDestroy {
     status: 'free' as const,
     appId: null,
     clientId: null,
+    startedAt: null,
     procs: { xvfb: null, app: null, vnc: null, ws: null },
   }));
+
+  onModuleInit() {
+    this.timeoutTimer = setInterval(() => this.checkTimeouts(), 60_000);
+    this.logger.log(`session timeout: ${this.sessionTimeoutMs / 1000}s`);
+  }
 
   async acquireSlot(appId: string, clientId: string, cfg: AppConfig): Promise<Slot> {
     const existing = this.slots.find(
@@ -91,6 +101,7 @@ export class SessionPoolService implements OnModuleDestroy {
     try {
       await this.startSlot(slot, cfg);
       slot.status = 'running';
+      slot.startedAt = Date.now();
       this.logPoolState();
       return slot;
     } catch (err) {
@@ -122,6 +133,7 @@ export class SessionPoolService implements OnModuleDestroy {
         status: s.status,
         appId: s.appId,
         clientId: s.clientId,
+        startedAt: s.startedAt,
         display: s.display,
         wsPort: s.wsPort,
         pids: {
@@ -135,8 +147,21 @@ export class SessionPoolService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    if (this.timeoutTimer) clearInterval(this.timeoutTimer);
     this.logger.log('shutting down — releasing all slots');
     await Promise.all(this.slots.map(s => this.killSlot(s)));
+  }
+
+  private checkTimeouts(): void {
+    const now = Date.now();
+    for (const slot of this.slots) {
+      if (slot.status === 'running' && slot.startedAt !== null && now - slot.startedAt >= this.sessionTimeoutMs) {
+        this.logger.warn(`session timeout  slot=${slot.n}  app=${slot.appId}  client=${slot.clientId}  elapsed=${Math.round((now - slot.startedAt) / 1000)}s`);
+        this.releaseSlot(slot.clientId!).catch(err =>
+          this.logger.error(`timeout releaseSlot failed  slot=${slot.n}  ${err.message}`),
+        );
+      }
+    }
   }
 
   // ─── Private ─────────────────────────────────────────────────────────────
@@ -256,6 +281,7 @@ export class SessionPoolService implements OnModuleDestroy {
     slot.status = 'free';
     slot.appId = null;
     slot.clientId = null;
+    slot.startedAt = null;
     this.logger.log(`slot ${slot.n} freed`);
   }
 

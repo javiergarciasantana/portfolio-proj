@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { SessionModule } from './sessions/session.module';
-import { HardwareModule } from './hardware/hardware.module'
+import { HardwareModule } from './hardware/hardware.module';
+import { RateLimitMiddleware } from './middleware/rate-limit.middleware';
 
 @Module({
   imports: [
@@ -14,4 +15,8 @@ import { HardwareModule } from './hardware/hardware.module'
   ],
   providers: [],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RateLimitMiddleware).forRoutes('*path');
+  }
+}

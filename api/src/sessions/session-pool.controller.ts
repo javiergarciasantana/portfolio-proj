@@ -1,7 +1,22 @@
 import { Controller, Get, Query, UnauthorizedException, Res, forwardRef, Inject } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import type { Response } from 'express';
 import { SessionPoolService } from './session-pool.service';
 import { NativeAppGateway } from '../gateways/native-app.gateway';
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 @Controller('debug')
 export class SessionPoolController {
@@ -11,7 +26,11 @@ export class SessionPoolController {
   ) {}
 
   @Get('pool')
-  getPoolStatus() {
+  getPoolStatus(@Query('key') key: string) {
+    const api_key = process.env.API_KEY ?? '';
+    if (!api_key || !safeCompare(key ?? '', api_key)) {
+      throw new UnauthorizedException('Access Denied: Invalid Security Key');
+    }
     return this.pool.getPoolStatus();
   }
 
@@ -19,8 +38,8 @@ export class SessionPoolController {
   getDashboard(@Query('key') key: string, @Res() res: Response) {
     // 🔒 SECURITY: Change this to a strong password!
     // Access this page via: https://portfolio.yourdomain.com/api/admin/dashboard?key=super_secret_admin_123
-    const api_key = process.env.API_KEY;
-    if (key !== api_key) {
+    const api_key = process.env.API_KEY ?? '';
+    if (!api_key || !safeCompare(key ?? '', api_key)) {
       throw new UnauthorizedException('Access Denied: Invalid Security Key');
     }
 
@@ -93,8 +112,8 @@ export class SessionPoolController {
                         ${activeSessions.length === 0 ? '<tr><td colspan="2" style="text-align:center; color:#888;">No active visitors</td></tr>' : ''}
                         ${activeSessions.map(session => `
                             <tr>
-                                <td>${session.ip}</td>
-                                <td><span class="highlight">${session.clientId}</span></td>
+                                <td>${escapeHtml(session.ip)}</td>
+                                <td><span class="highlight">${escapeHtml(session.clientId)}</span></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -128,6 +147,7 @@ export class SessionPoolController {
                             <th>Status</th>
                             <th>App ID</th>
                             <th>Owner (Client ID)</th>
+                            <th>Uptime</th>
                             <th>Websockify Port</th>
                             <th>Active PIDs (Linux)</th>
                         </tr>
@@ -139,6 +159,7 @@ export class SessionPoolController {
                                 <td class="status-${slot.status}">${slot.status.toUpperCase()}</td>
                                 <td>${slot.appId ? `<span class="highlight">${slot.appId}</span>` : '<span class="status-free">None</span>'}</td>
                                 <td>${slot.clientId || '<span class="status-free">None</span>'}</td>
+                                <td>${slot.startedAt ? Math.floor((Date.now() - slot.startedAt) / 60000) + 'm ' + Math.floor(((Date.now() - slot.startedAt) % 60000) / 1000) + 's' : '<span class="status-free">—</span>'}</td>
                                 <td>${slot.wsPort}</td>
                                 <td style="font-size: 12px; color: #aaa;">
                                     Xvfb: ${slot.pids.xvfb || '-'}<br>

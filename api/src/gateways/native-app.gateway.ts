@@ -62,7 +62,12 @@ const GUI_CONFIGS: Record<string, AppConfig> = {
   },
 };
 
-@WebSocketGateway({ cors: true })
+@WebSocketGateway({
+  cors: {
+    origin: process.env.ALLOWED_ORIGIN ?? 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+  },
+})
 export class NativeAppGateway implements OnGatewayDisconnect {
   constructor(private readonly sessionPool: SessionPoolService) {}
   
@@ -213,7 +218,12 @@ export class NativeAppGateway implements OnGatewayDisconnect {
         cols: 100,
         rows: 30,
         cwd: '/tmp',
-        env: process.env as Record<string, string>,
+        env: {
+          HOME: process.env.HOME ?? '/root',
+          PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+          TERM: 'xterm-256color',
+          LANG: process.env.LANG ?? 'en_US.UTF-8',
+        },
       });
       client.data.ptyProcess = proc;
       proc.onData(data => client.emit('terminal-output', data));
