@@ -32,27 +32,27 @@ Deployed on a MacBook 2010 (Core 2 Duo 2.4 GHz, 10 GB RAM, Debian 12 headless).
 
 ## My Showcased Projects
 
-### Labyrinth Madness
+### [Labyrinth Madness](https://github.com/javiergarciasantana/labyrinth_madness)
 **Language:** Java + Processing
 
 A procedurally generated maze visualizer and solver. The maze is built at runtime and rendered via the Processing graphics library. Multiple pathfinding algorithms (BFS, DFS) navigate it in real time. Runs as a GUI application inside a virtual display, streamed to the browser over VNC.
 
-### Haskell Functions
+### [Haskell Functions](https://github.com/javiergarciasantana/haskell_functions)
 **Language:** Haskell
 
 An interactive terminal showcasing a collection of functional programming algorithms and exercises — list manipulation, recursion, higher-order functions, and type-class-driven polymorphism. Runs as a TUI piped through a PTY directly into an `xterm.js` session in the browser.
 
-### FormFiller
+### [FormFiller](https://github.com/javiergarciasantana/FormFiller)
 **Language:** Java / JavaFX
 
 A desktop GUI application that automates filling in web forms. The JavaFX interface is rendered on a headless virtual display (`Xvfb`) and streamed live to the browser via `x11vnc` + `noVNC`, giving visitors a fully interactive window into the running app.
 
-### Polygon Triangulation
+### [Polygon Triangulation](https://github.com/javiergarciasantana/polygon_triangulation)
 **Language:** C++ / GLFW / OpenGL
 
 A computational geometry visualizer that triangulates arbitrary polygons in real time using the ear-clipping algorithm. Rendered via Mesa software OpenGL on `Xvfb` (no physical GPU required), then streamed via VNC — making hardware-accelerated-style graphics run on a headless 2010 MacBook.
 
-### Web-Scrape
+### [Web-Scrape](https://github.com/javiergarciasantana/web-scrape)
 **Language:** JavaScript / Chrome Extension (MV3)
 
 A browser extension that scrapes and cross-matches product listings across e-commerce platforms to surface pricing and availability at a glance. Requires no server process — presented as a static info card directly in the portfolio UI.
