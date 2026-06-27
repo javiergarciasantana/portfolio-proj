@@ -91,6 +91,44 @@
             font-size: 12px;
             color: #444;
         }
+
+        .contact-btns {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .contact-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background-color: #d3d3d3;
+            color: #000000;
+            text-decoration: none;
+            font-family: sans-serif;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 4px 10px;
+            border-top: 2px solid #ffffff;
+            border-left: 2px solid #ffffff;
+            border-right: 2px solid #555555;
+            border-bottom: 2px solid #555555;
+        }
+
+        .contact-btn:hover {
+            border-top: 2px solid #555555;
+            border-left: 2px solid #555555;
+            border-right: 2px solid #ffffff;
+            border-bottom: 2px solid #ffffff;
+        }
+
+        .contact-btn img {
+            width: 14px;
+            height: 14px;
+            vertical-align: middle;
+            image-rendering: pixelated;
+        }
     </style>
 </head>
 <body>
@@ -100,6 +138,17 @@
             <img src="./img/face.png" class="pixel-face" alt="Javier's Face">
             <h1 style="border: none; margin-bottom: 0;">Javier Garc&iacute;a Santana</h1>
             <p><i>Software Engineer &bull; Parallel Computing &bull; Backend Architecture</i></p>
+            <div class="contact-btns">
+                <a class="contact-btn" href="mailto:javiergs0703@gmail.com">
+                    ✉ Email
+                </a>
+                <a class="contact-btn" href="https://github.com/javiergarciasantana" target="_blank" rel="noopener">
+                    &#128279; GitHub
+                </a>
+                <a class="contact-btn" href="https://www.linkedin.com/in/javier-garcia-santana-362691302" target="_blank" rel="noopener">
+                    &#128101; LinkedIn
+                </a>
+            </div>
         </center>
         
         <hr size="2" color="#555">
